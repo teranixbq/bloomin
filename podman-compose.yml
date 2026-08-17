@@ -1,0 +1,25 @@
+services:
+  gowa:
+    image: docker.io/aldinokemal2104/go-whatsapp-web-multidevice:v9.0.1
+    ports:
+      - "3000:3000"
+    environment:
+      - WHATSAPP_WEBHOOK=http://bot:8000/webhook
+      - WHATSAPP_WEBHOOK_SECRET=sapaminsecret
+      - APP_BASIC_AUTH=admin:sapamin2024
+      - WHATSAPP_AUTO_MARK_READ=true
+    volumes:
+      - ./gowa-data:/app/storages
+    restart: unless-stopped
+
+  bot:
+    build: ./bot
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./bot/.env
+    volumes:
+      - ./bot/config.json:/app/config.json
+    restart: unless-stopped
+    depends_on:
+      - gowa

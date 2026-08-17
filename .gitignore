@@ -1,0 +1,16 @@
+# Secret & konfigurasi
+bot/.env
+bot/config.json
+
+# Data produksi WhatsApp
+gowa-data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Git
+.git/
