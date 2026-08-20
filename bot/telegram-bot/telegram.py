@@ -61,7 +61,7 @@ async def ensure_device() -> str:
     async with httpx.AsyncClient(auth=gowa_auth()) as client:
         resp = await client.post(
             f"{GOWA_BASE_URL}/devices",
-            json={"name": "Sapamin-Admin"},
+            json={"name": "Bloomin-Admin"},
             timeout=10,
         )
         resp.raise_for_status()
@@ -82,12 +82,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cfg = load_config()
     if not cfg.get("is_setup_done"):
         await update.message.reply_text(
-            "Selamat datang di Sapamin Bot Manager!\n\n"
+            "Selamat datang di Bloomin Bot Manager!\n\n"
             "Setup belum selesai. Ketik /setup untuk memulai konfigurasi."
         )
     else:
         await update.message.reply_text(
-            "Sapamin Bot Manager\n\n"
+            "Bloomin Bot Manager\n\n"
             "Perintah tersedia:\n"
             "/setup - Konfigurasi bot (brand, corpus, owner)\n"
             "/qr - Login WhatsApp via QR code\n"
@@ -110,7 +110,7 @@ async def cmd_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         return
     cfg = load_config()
-    current_brand = cfg.get("brand_name", "Sapamin")
+    current_brand = cfg.get("brand_name", "Bloomin")
     await update.message.reply_text(
         "Setup Bot\n\n"
         f"Langkah 1/3: Kirim nama brand toko kamu.\n\n"
@@ -133,7 +133,7 @@ async def received_brand_name(update: Update, context: ContextTypes.DEFAULT_TYPE
             return ConversationHandler.END
         elif query.data == "setup_skip":
             cfg = load_config()
-            brand_name = cfg.get("brand_name", "Sapamin")
+            brand_name = cfg.get("brand_name", "Bloomin")
             context.user_data["brand_name"] = brand_name
             current_url = cfg.get("corpus_url", "-")
             await query.edit_message_text(
@@ -267,7 +267,7 @@ async def received_owner_phone(update: Update, context: ContextTypes.DEFAULT_TYP
         elif query.data == "setup_skip":
             phone      = cfg.get("owner_phone", "")
             corpus_url = context.user_data.get("corpus_url", cfg.get("corpus_url", ""))
-            brand_name = context.user_data.get("brand_name", cfg.get("brand_name", "Sapamin"))
+            brand_name = context.user_data.get("brand_name", cfg.get("brand_name", "Bloomin"))
             await query.edit_message_text(f"Nomor owner dipertahankan: {phone}")
             await _finalize_setup(query.message, context, corpus_url, brand_name, phone)
             return ConversationHandler.END
@@ -282,7 +282,7 @@ async def received_owner_phone(update: Update, context: ContextTypes.DEFAULT_TYP
         return WAIT_OWNER_PHONE
 
     corpus_url = context.user_data.get("corpus_url", cfg.get("corpus_url", ""))
-    brand_name = context.user_data.get("brand_name", cfg.get("brand_name", "Sapamin"))
+    brand_name = context.user_data.get("brand_name", cfg.get("brand_name", "Bloomin"))
     await _finalize_setup(update.message, context, corpus_url, brand_name, phone)
     return ConversationHandler.END
 

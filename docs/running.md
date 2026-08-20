@@ -1,6 +1,6 @@
-# Menjalankan Bot Sapamin (Running Guide)
+# Menjalankan Bot Bloomin (Running Guide)
 
-Panduan operasional harian untuk bot WhatsApp **Sapamin** yang berjalan di Podman.
+Panduan operasional harian untuk bot WhatsApp **Bloomin** yang berjalan di Podman.
 
 ## Perintah Dasar Podman
 
@@ -8,14 +8,14 @@ Panduan operasional harian untuk bot WhatsApp **Sapamin** yang berjalan di Podma
 |---|---|
 | Lihat container running | `podman ps` |
 | Lihat semua container | `podman ps -a` |
-| Log bot real-time | `podman logs -f sapamin_bot_1` |
-| Log GOWA real-time | `podman logs -f sapamin_gowa_1` |
+| Log bot real-time | `podman logs -f bloomin_bot_1` |
+| Log GOWA real-time | `podman logs -f bloomin_gowa_1` |
 | Restart semua | `podman-compose restart` |
-| Restart bot saja | `podman restart sapamin_bot_1` |
-| Restart GOWA saja | `podman restart sapamin_gowa_1` |
-| Start semua | `cd ~/sapamin && podman-compose up -d` |
-| Stop semua | `cd ~/sapamin && podman-compose down` |
-| Hapus container + network | `cd ~/sapamin && podman-compose down` |
+| Restart bot saja | `podman restart bloomin_bot_1` |
+| Restart GOWA saja | `podman restart bloomin_gowa_1` |
+| Start semua | `cd ~/bloomin && podman-compose up -d` |
+| Stop semua | `cd ~/bloomin && podman-compose down` |
+| Hapus container + network | `cd ~/bloomin && podman-compose down` |
 
 > Semua perintah dijalankan di VPS (`ssh ubuntu@YOUR_VPS_IP`).
 
@@ -50,7 +50,7 @@ Response yang benar:
 ### Cek GOWA
 
 ```bash
-curl -u admin:sapamin2024 http://localhost:3000/app/status
+curl -u admin:bloomin2024 http://localhost:3000/app/status
 ```
 
 ## Alur Startup Normal
@@ -58,7 +58,7 @@ curl -u admin:sapamin2024 http://localhost:3000/app/status
 Saat VPS reboot, container **tidak otomatis start**. Compose memang memakai `restart: unless-stopped`, tapi pada Podman rootless kebijakan restart hanya berlaku saat sistem berjalan (container crash → restart otomatis). Setelah reboot, container baru start lagi jika unit systemd user `podman-restart.service` aktif — di VPS ini statusnya **disabled**. Jalankan manual:
 
 ```bash
-cd ~/sapamin
+cd ~/bloomin
 podman-compose up -d
 ```
 
@@ -73,15 +73,15 @@ podman-compose up -d
 > **Opsi B** — buat systemd service agar otomatis start saat reboot:
 >
 > ```bash
-> sudo tee /etc/systemd/system/sapamin.service > /dev/null << 'EOF'
+> sudo tee /etc/systemd/system/bloomin.service > /dev/null << 'EOF'
 > [Unit]
-> Description=Sapamin WhatsApp Bot (Podman)
+> Description=Bloomin WhatsApp Bot (Podman)
 > After=network-online.target
 > Wants=network-online.target
 >
 > [Service]
 > User=ubuntu
-> WorkingDirectory=/home/ubuntu/sapamin
+> WorkingDirectory=/home/ubuntu/bloomin
 > ExecStart=/usr/bin/podman-compose up -d
 > ExecStop=/usr/bin/podman-compose down
 > Restart=on-failure
@@ -91,7 +91,7 @@ podman-compose up -d
 > EOF
 >
 > sudo systemctl daemon-reload
-> sudo systemctl enable --now sapamin
+> sudo systemctl enable --now bloomin
 > ```
 
 ## Sesi Chat WhatsApp (Perilaku Bot)
@@ -109,7 +109,7 @@ GOWA punya endpoint `/send/image`:
 
 ```bash
 curl -X POST http://localhost:3000/send/image \
-  -u admin:sapamin2024 \
+  -u admin:bloomin2024 \
   -H "Content-Type: application/json" \
   -H "X-Device-Id: DEVICE_ID" \
   -d '{
@@ -122,23 +122,23 @@ curl -X POST http://localhost:3000/send/image \
 **Catatan:**
 - URL harus direct link ke file gambar (`.jpg`, `.png`) — bukan Google encrypted thumbnail
 - Bisa dari imgbb, Google Drive direct link, atau URL publik lainnya
-- `X-Device-Id` diambil dari `~/sapamin/bot/config.json` → field `device_id`
+- `X-Device-Id` diambil dari `~/bloomin/bot/config.json` → field `device_id`
 
 ## Troubleshooting Cepat
 
 ### Bot tidak merespon Telegram
 
 ```bash
-podman logs sapamin_bot_1 | grep -iE 'timedout|error|token'
+podman logs bloomin_bot_1 | grep -iE 'timedout|error|token'
 ```
 
 ### GOWA crash
 
 ```bash
-podman logs sapamin_gowa_1 | tail -20
+podman logs bloomin_gowa_1 | tail -20
 # Jika ada "readonly database":
-sudo chown -R ubuntu:ubuntu ~/sapamin/gowa-data
-podman restart sapamin_gowa_1
+sudo chown -R ubuntu:ubuntu ~/bloomin/gowa-data
+podman restart bloomin_gowa_1
 ```
 
 ### Device WhatsApp ke logout / perlu QR ulang
@@ -149,8 +149,8 @@ Ketik `/qr` di Telegram bot manager.
 
 | Path (di VPS) | Fungsi |
 |---|---|
-| `~/sapamin/podman-compose.yml` | Definisi container |
-| `~/sapamin/bot/.env` | Konfigurasi secret (token, API key) |
-| `~/sapamin/bot/config.json` | Config bot (dihasilkan dari `/setup`) |
-| `~/sapamin/gowa-data/` | Session WhatsApp (BACKUP INI!) |
-| `~/sapamin/bot/` | Kode aplikasi |
+| `~/bloomin/podman-compose.yml` | Definisi container |
+| `~/bloomin/bot/.env` | Konfigurasi secret (token, API key) |
+| `~/bloomin/bot/config.json` | Config bot (dihasilkan dari `/setup`) |
+| `~/bloomin/gowa-data/` | Session WhatsApp (BACKUP INI!) |
+| `~/bloomin/bot/` | Kode aplikasi |

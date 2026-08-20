@@ -8,7 +8,7 @@ DEFAULT_CONFIG = {
     "corpus_url":    "",
     "owner_phone":   "",
     "is_setup_done": False,
-    "brand_name":    "Sapamin",
+    "brand_name":    "Bloomin",
     "welcome_msg":   MSG_WELCOME_DEFAULT,
     "system_prompt": DEFAULT_SYSTEM_PROMPT,
 }

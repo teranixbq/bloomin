@@ -7,7 +7,7 @@ SESSION_OWNER_TIMEOUT = 300   # tutup sesi owner (5 menit)
 
 # Pesan bot WhatsApp
 MSG_WELCOME_DEFAULT = (
-    "Halo kak! Selamat datang di *Sapamin* 🌸\n"
+    "Halo kak! Selamat datang di *Bloomin* 🌸\n"
     "Ada yang bisa kami bantu hari ini?\n\n"
     "Kamu bisa tanya tentang:\n"
     "• Katalog & harga bunga\n"

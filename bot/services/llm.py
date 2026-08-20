@@ -11,7 +11,7 @@ LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "300"))
 def _get_system_prompt(corpus: str) -> str:
     cfg = load_config()
     template = cfg.get("system_prompt", "")
-    brand_name = cfg.get("brand_name", "Sapamin")
+    brand_name = cfg.get("brand_name", "Bloomin")
     filled = template.replace("{brand_name}", brand_name)
     return filled.format(corpus=corpus) if "{corpus}" in filled else filled + f"\n\n{corpus}"
 

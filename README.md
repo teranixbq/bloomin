@@ -1,6 +1,6 @@
-# 🌸 Sapamin — WhatsApp Bot Toko Bunga
+# 🌸 Bloomin — WhatsApp Bot Toko Bunga
 
-Bot WhatsApp otomatis untuk toko bunga **Sapamin**. Dijalankan dengan **Podman** (rootless), tanpa Docker.
+Bot WhatsApp otomatis untuk toko bunga **Bloomin**. Dijalankan dengan **Podman** (rootless), tanpa Docker.
 
 Bot menjawab pertanyaan pelanggan via LLM (DeepSeek) berdasarkan corpus info toko, mengelola sesi chat, dan meneruskan pelanggan ke admin saat diminta.
 
@@ -17,7 +17,7 @@ Bot menjawab pertanyaan pelanggan via LLM (DeepSeek) berdasarkan corpus info tok
 ## Struktur Project
 
 ```
-sapamin/
+bloomin/
 ├── podman-compose.yml        # Definisi container (GOWA + Bot)
 ├── bot/
 │   ├── Dockerfile
@@ -40,7 +40,7 @@ sapamin/
 
 ```bash
 # di VPS
-git clone <repo> && cd sapamin
+git clone <repo> && cd bloomin
 echo '{}' > bot/config.json
 cp bot/.env.example bot/.env && nano bot/.env   # isi token Telegram, admin ID, LLM key
 podman-compose build
@@ -57,7 +57,7 @@ Lalu di Telegram:
 | Service | Image | Port | Fungsi |
 |---|---|---|---|
 | `gowa` | `aldinokemal2104/go-whatsapp-web-multidevice:v9.0.1` | 3000 | WhatsApp gateway |
-| `bot` | `localhost/sapamin_bot` (build lokal) | 8000 | FastAPI + Telegram bot |
+| `bot` | `localhost/bloomin_bot` (build lokal) | 8000 | FastAPI + Telegram bot |
 
 ## Dokumentasi
 
@@ -73,7 +73,7 @@ Lalu di Telegram:
 | `TELEGRAM_ADMIN_USER_ID` | ✅ | User ID admin (satu-satunya yg boleh akses menu) |
 | `GOWA_PUBLIC_URL` | ✅ | `http://IP_VPS:3000` |
 | `LLM_API_KEY` | ✅ | API key DeepSeek |
-| `GOWA_BASIC_AUTH` | ❌ | Auth GOWA, default `admin:sapamin2024` |
+| `GOWA_BASIC_AUTH` | ❌ | Auth GOWA, default `admin:bloomin2024` |
 | `GOWA_BASE_URL` | ❌ | `http://gowa:3000` (jangan diubah) |
 
 ## Catatan Penting

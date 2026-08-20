@@ -1,6 +1,6 @@
 # Deployment ke VPS dengan Podman
 
-Panduan lengkap mendeploy bot WhatsApp **Sapamin** menggunakan **Podman** di VPS.
+Panduan lengkap mendeploy bot WhatsApp **Bloomin** menggunakan **Podman** di VPS.
 
 ## Prasyarat
 
@@ -51,18 +51,18 @@ Dari mesin lokal:
 rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' \
   --exclude='bot/config.json' --exclude='bot/.env' --exclude='gowa-data' \
   -e "ssh -i ~/.ssh/vps_not" \
-  sapamin/ ubuntu@YOUR_VPS_IP:~/sapamin/
+  bloomin/ ubuntu@YOUR_VPS_IP:~/bloomin/
 
 # Atau sync hanya folder bot/ (perhatian: pattern exclude jadi TANPA prefix bot/)
 rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' \
   --exclude='config.json' --exclude='.env' \
   -e "ssh -i ~/.ssh/vps_not" \
-  sapamin/bot/ ubuntu@YOUR_VPS_IP:~/sapamin/bot/
+  bloomin/bot/ ubuntu@YOUR_VPS_IP:~/bloomin/bot/
 ```
 
 > **⚠️ PENTING — Pattern exclude rsync tergantung source:**
-> - Source `sapamin/` → gunakan `--exclude='bot/config.json'`
-> - Source `sapamin/bot/` → gunakan `--exclude='config.json'` (tanpa prefix `bot/`)
+> - Source `bloomin/` → gunakan `--exclude='bot/config.json'`
+> - Source `bloomin/bot/` → gunakan `--exclude='config.json'` (tanpa prefix `bot/`)
 >
 > `config.json`, `bot/.env`, dan `gowa-data/` sengaja di-exclude agar data produksi **tidak tertimpa** saat update.
 
@@ -71,22 +71,22 @@ rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' \
 `config.json` dihasilkan otomatis lewat Telegram `/setup`. Untuk instalasi baru, cukup buat file kosong:
 
 ```bash
-echo '{}' > ~/sapamin/bot/config.json
-sudo chown -R ubuntu:ubuntu ~/sapamin
+echo '{}' > ~/bloomin/bot/config.json
+sudo chown -R ubuntu:ubuntu ~/bloomin
 ```
 
 ## 4. Konfigurasi `.env`
 
-Edit `~/sapamin/bot/.env` di VPS:
+Edit `~/bloomin/bot/.env` di VPS:
 
 ```bash
-nano ~/sapamin/bot/.env
+nano ~/bloomin/bot/.env
 ```
 
 ```ini
 GOWA_BASE_URL=http://gowa:3000
 GOWA_PUBLIC_URL=http://YOUR_VPS_IP:3000
-GOWA_BASIC_AUTH=admin:sapamin2024
+GOWA_BASIC_AUTH=admin:bloomin2024
 LLM_API_KEY=sk-xxxxxxx
 LLM_BASE_URL=https://api.deepseek.com
 LLM_MODEL=deepseek-chat
@@ -100,8 +100,8 @@ CONFIG_PATH=./config.json
 ## 5. Build & Jalankan
 
 ```bash
-cd ~/sapamin
-sudo chown -R ubuntu:ubuntu ~/sapamin
+cd ~/bloomin
+sudo chown -R ubuntu:ubuntu ~/bloomin
 podman-compose build
 podman-compose up -d
 ```
@@ -128,10 +128,10 @@ Saat ada perubahan kode:
 rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' \
   --exclude='bot/config.json' --exclude='gowa-data' \
   -e "ssh -i ~/.ssh/vps_not" \
-  sapamin/ ubuntu@YOUR_VPS_IP:~/sapamin/
+  bloomin/ ubuntu@YOUR_VPS_IP:~/bloomin/
 
 # di VPS
-cd ~/sapamin
+cd ~/bloomin
 podman-compose build
 podman-compose up -d --force-recreate
 ```
@@ -142,22 +142,22 @@ Semua data penting ada di 2 folder:
 
 | Data | Lokasi | Isi |
 |---|---|---|
-| Session WhatsApp | `~/sapamin/gowa-data/` | device session, DB, media |
-| Konfigurasi bot | `~/sapamin/bot/config.json` | corpus, owner, brand, system prompt |
+| Session WhatsApp | `~/bloomin/gowa-data/` | device session, DB, media |
+| Konfigurasi bot | `~/bloomin/bot/config.json` | corpus, owner, brand, system prompt |
 
 Backup:
 
 ```bash
-cd ~/sapamin
-tar -czf sapamin-backup.tar.gz gowa-data/ bot/config.json
+cd ~/bloomin
+tar -czf bloomin-backup.tar.gz gowa-data/ bot/config.json
 ```
 
 Restore di VPS baru:
 
 ```bash
-cd ~/sapamin
-tar -xzf sapamin-backup.tar.gz
-sudo chown -R ubuntu:ubuntu ~/sapamin
+cd ~/bloomin
+tar -xzf bloomin-backup.tar.gz
+sudo chown -R ubuntu:ubuntu ~/bloomin
 podman-compose up -d
 ```
 
@@ -175,8 +175,8 @@ podman-compose up -d
 Permission issue — `gowa-data` dimiliki root. Perbaiki:
 
 ```bash
-sudo chown -R ubuntu:ubuntu ~/sapamin/gowa-data
-podman restart sapamin_gowa_1
+sudo chown -R ubuntu:ubuntu ~/bloomin/gowa-data
+podman restart bloomin_gowa_1
 ```
 
 ### GOWA tidak bisa pull image
@@ -190,14 +190,14 @@ Tulis nama image lengkap dengan prefix `docker.io/` di `podman-compose.yml`.
 ## 9. Logs
 
 ```bash
-podman logs -f sapamin_bot_1    # log bot
-podman logs -f sapamin_gowa_1   # log GOWA
+podman logs -f bloomin_bot_1    # log bot
+podman logs -f bloomin_gowa_1   # log GOWA
 ```
 
 ## 10. Hapus / Teardown
 
 ```bash
-cd ~/sapamin
+cd ~/bloomin
 podman-compose down
 podman system prune -a
 ```

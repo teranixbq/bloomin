@@ -1,6 +1,6 @@
 # Setup Telegram Bot & WhatsApp (Panduan Lengkap)
 
-Panduan setup bot **Sapamin** dari awal: buat bot Telegram, konfigurasi via `/setup`, scan QR WhatsApp, dan perintah-perintah yang tersedia.
+Panduan setup bot **Bloomin** dari awal: buat bot Telegram, konfigurasi via `/setup`, scan QR WhatsApp, dan perintah-perintah yang tersedia.
 
 ## Bagian 1 — Buat Bot Telegram
 
@@ -15,10 +15,10 @@ Panduan setup bot **Sapamin** dari awal: buat bot Telegram, konfigurasi via `/se
 
 ## Bagian 2 — Isi Konfigurasi
 
-Edit `~/sapamin/bot/.env` di VPS:
+Edit `~/bloomin/bot/.env` di VPS:
 
 ```bash
-nano ~/sapamin/bot/.env
+nano ~/bloomin/bot/.env
 ```
 
 Isi minimal yang WAJIB:
@@ -27,14 +27,14 @@ Isi minimal yang WAJIB:
 TELEGRAM_BOT_TOKEN=123456789:ABCdef...        # dari BotFather
 TELEGRAM_ADMIN_USER_ID=1000715121             # dari @userinfobot
 GOWA_PUBLIC_URL=http://YOUR_VPS_IP:3000       # IP publik VPS
-GOWA_BASIC_AUTH=admin:sapamin2024
+GOWA_BASIC_AUTH=admin:bloomin2024
 LLM_API_KEY=sk-xxxx                           # API key LLM (DeepSeek)
 ```
 
 Simpan (`Ctrl+O`, `Enter`, `Ctrl+X`) lalu restart:
 
 ```bash
-cd ~/sapamin
+cd ~/bloomin
 podman-compose restart bot
 ```
 
@@ -42,13 +42,13 @@ podman-compose restart bot
 
 ## Bagian 3 — Setup Bot via Telegram
 
-1. Buka chat dengan bot Sapamin (token baru yang dibuat di Bagian 1)
+1. Buka chat dengan bot Bloomin (token baru yang dibuat di Bagian 1)
 2. Kirim `/start`
 3. Kirim `/setup` — bot akan memandu setup 3 langkah:
 
 | Langkah | Pertanyaan | Contoh Jawaban |
 |---|---|---|
-| 1/3 | Nama brand toko | `Sapamin` |
+| 1/3 | Nama brand toko | `Bloomin` |
 | 2/3 | URL corpus (data toko) | `https://drive.google.com/file/d/...` atau URL raw |
 | 3/3 | Nomor WhatsApp owner | `6282261144600` |
 
@@ -73,7 +73,7 @@ Corpus bisa berupa:
 
 > - QR hanya valid beberapa detik/menit. Jika kedaluwarsa, kirim `/qr` lagi.
 > - Sesudah terhubung, **jangan logout HP** dari linked devices — itu akan memutus session.
-> - Data session disimpan di `~/sapamin/gowa-data/` — jangan dihapus kecuali mau login ulang.
+> - Data session disimpan di `~/bloomin/gowa-data/` — jangan dihapus kecuali mau login ulang.
 
 ## Bagian 5 — Verifikasi
 
@@ -159,15 +159,15 @@ Informasi toko:
 GOWA tidak bisa dijangkau bot. Cek:
 
 ```bash
-podman logs sapamin_gowa_1 | tail -20
-curl -u admin:sapamin2024 http://localhost:3000/app/status
+podman logs bloomin_gowa_1 | tail -20
+curl -u admin:bloomin2024 http://localhost:3000/app/status
 ```
 
 ### QR tidak muncul / expired terus
 
 - Pastikan bot (GOWA) running: `podman ps`
 - Ulangi `/qr` — perintah menghasilkan QR baru
-- Cek log: `podman logs sapamin_gowa_1`
+- Cek log: `podman logs bloomin_gowa_1`
 
 ### Setup `/setup` macet di tengah
 
@@ -177,5 +177,5 @@ Kirim `Cancel`, lalu `/setup` lagi dari awal.
 
 1. `/status` di Telegram — koneksi aman?
 2. `/reload` — corpus termuat?
-3. Cek log: `podman logs sapamin_bot_1 | tail -20`
+3. Cek log: `podman logs bloomin_bot_1 | tail -20`
 4. Pastikan `is_setup_done: true` di `/config`

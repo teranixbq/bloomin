@@ -5,8 +5,8 @@ services:
       - "3000:3000"
     environment:
       - WHATSAPP_WEBHOOK=http://bot:8000/webhook
-      - WHATSAPP_WEBHOOK_SECRET=sapaminsecret
-      - APP_BASIC_AUTH=admin:sapamin2024
+      - WHATSAPP_WEBHOOK_SECRET=bloominsecret
+      - APP_BASIC_AUTH=admin:bloomin2024
       - WHATSAPP_AUTO_MARK_READ=true
     volumes:
       - ./gowa-data:/app/storages
