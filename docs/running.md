@@ -55,14 +55,22 @@ curl -u admin:sapamin2024 http://localhost:3000/app/status
 
 ## Alur Startup Normal
 
-Saat VPS reboot, container **tidak otomatis start** karena Podman rootless tidak punya `restart: always` seperti Docker. Jalankan manual:
+Saat VPS reboot, container **tidak otomatis start**. Compose memang memakai `restart: unless-stopped`, tapi pada Podman rootless kebijakan restart hanya berlaku saat sistem berjalan (container crash → restart otomatis). Setelah reboot, container baru start lagi jika unit systemd user `podman-restart.service` aktif — di VPS ini statusnya **disabled**. Jalankan manual:
 
 ```bash
 cd ~/sapamin
 podman-compose up -d
 ```
 
-> **Tip**: Buat systemd service agar otomatis start saat reboot:
+> **Opsi A** — aktifkan mekanisme bawaan Podman agar restart policy berlaku setelah reboot:
+>
+> ```bash
+> systemctl --user enable --now podman-restart.service
+> ```
+>
+> (butuh `loginctl enable-linger ubuntu` yang sudah dikonfigurasi saat deploy)
+>
+> **Opsi B** — buat systemd service agar otomatis start saat reboot:
 >
 > ```bash
 > sudo tee /etc/systemd/system/sapamin.service > /dev/null << 'EOF'

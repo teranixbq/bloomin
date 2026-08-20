@@ -9,10 +9,10 @@ Bot menjawab pertanyaan pelanggan via LLM (DeepSeek) berdasarkan corpus info tok
 - 🤖 Jawaban otomatis via **DeepSeek LLM** berdasarkan corpus toko
 - 💬 Session chat per pelanggan (history 10 pasang pesan, auto-ping & auto-close)
 - 🌸 Terusan ke admin WhatsApp saat pelanggan minta bicara manusia
-- 📱 Notifikasi ke owner via WhatsApp & Telegram
-- 🖼️ Kirim foto produk ke pelanggan (endpoint `/send/image`)
+- 📱 Notifikasi ke owner via **WhatsApp** saat pelanggan minta dihubungkan ke admin (Telegram hanya untuk kelola bot + alert admin bila config hilang saat restart)
+- 🖼️ Kirim foto produk ke pelanggan secara manual via endpoint GOWA `/send/image` (lihat [running.md](docs/running.md))
 - ⚙️ Kelola penuh lewat Telegram bot (`/setup`, `/qr`, `/status`, `/systemprompt`, dll)
-- 🐳 **Podman native** — hemat ~157MB RAM dibanding Docker (total ±81MB)
+- 🐳 **Podman native** — hemat ~157MB RAM dibanding Docker (total ±77MB saat idle)
 
 ## Struktur Project
 
