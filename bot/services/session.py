@@ -30,6 +30,13 @@ async def _inactivity_timer(phone: str):
         session = _sessions.get(phone)
         if not session:
             return
+        
+        # Outside hours session - just remove silently after 3 minutes
+        if session.get("outside_hours"):
+            _sessions.pop(phone, None)
+            print(f"[session] outside hours session expired for {phone}")
+            return
+        
         session["waiting_confirm"] = True
         session["timer"] = None
         await send_message(phone, MSG_STILL_THERE)
@@ -82,13 +89,14 @@ def owner_connected(phone: str):
         session["timer"] = asyncio.create_task(_owner_session_timer(phone))
         print(f"[session] owner started talking to {phone}")
 
-def start_session(phone: str):
+def start_session(phone: str, outside_hours: bool = False):
     _sessions[phone] = {
         "timer": asyncio.create_task(_inactivity_timer(phone)),
         "waiting_confirm": False,
         "waiting_admin_confirm": False,
         "waiting_owner": False,
         "owner_connected": False,
-        "history": [],  # sliding window chat history untuk LLM
+        "outside_hours": outside_hours,
+        "history": [],
     }
-    print(f"[session] started for {phone}")
+    print(f"[session] started for {phone}{' (outside hours)' if outside_hours else ''}")

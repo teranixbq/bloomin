@@ -91,12 +91,15 @@ async def _handle_message(sender_phone: str, message: str):
 
     # Check jam kerja - hanya balas pesan pertama di luar jam kerja
     if not is_within_work_time():
-        if sender_phone not in _notified_outside_hours:
-            _notified_outside_hours.add(sender_phone)
+        if sender_phone not in sessions:
+            # Pesan pertama di luar jam kerja
+            start_session(sender_phone, outside_hours=True)
             print(f"[worktime] {sender_phone} di luar jam kerja, kirim info")
             await send_message(sender_phone, get_work_time_info())
         else:
-            print(f"[worktime] {sender_phone} sudah dikasih info, skip")
+            # Masih dalam 3 menit, reset timer dan skip
+            reset_timer(sender_phone)
+            print(f"[worktime] {sender_phone} masih dalam 3 menit, skip")
         return
 
     if sender_phone in _processing:
