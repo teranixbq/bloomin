@@ -794,27 +794,34 @@ async def cmd_newlogin(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Mengambil QR code untuk login..."
         )
         
-        # Ambil QR code
+        # Ambil QR code via login endpoint
         async with httpx.AsyncClient(auth=gowa_auth()) as client:
-            qr_resp = await client.get(f"{GOWA_BASE_URL}/devices/{device_id}/qr", timeout=15)
+            qr_resp = await client.get(f"{GOWA_BASE_URL}/devices/{device_id}/login", timeout=15)
             qr_resp.raise_for_status()
             qr_data = qr_resp.json()
             
-        qr_code = qr_data.get("qr")
-        if not qr_code:
+        qr_link = qr_data.get("results", {}).get("qr_link")
+        qr_duration = qr_data.get("results", {}).get("qr_duration", 30)
+        if not qr_link:
             await update.message.reply_text("❌ Gagal mengambil QR code")
             return
+        
+        # Download QR image
+        async with httpx.AsyncClient(auth=gowa_auth()) as client:
+            img_resp = await client.get(qr_link, timeout=15)
+            img_resp.raise_for_status()
+            qr_image = img_resp.content
             
         # Kirim QR code sebagai foto
         qr_message = await update.message.reply_photo(
-            photo=qr_code,
+            photo=qr_image,
             caption=(
                 f"📱 Scan QR ini dengan WhatsApp:\n\n"
                 f"1. Buka WhatsApp\n"
                 f"2. Tap ⋮ (menu) > Linked Devices\n"
                 f"3. Tap 'Link a Device'\n"
                 f"4. Scan QR di atas\n\n"
-                f"⏱️ QR berlaku 60 detik\n"
+                f"⏱️ QR berlaku {qr_duration} detik\n"
                 f"Device ID: `{device_id}`"
             ),
             parse_mode="Markdown"
