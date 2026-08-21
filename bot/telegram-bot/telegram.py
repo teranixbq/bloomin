@@ -114,12 +114,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Bloomin Bot Manager\n\n"
             "Perintah tersedia:\n"
             "/setup - Konfigurasi bot (brand, knowledge, owner)\n"
+            "/knowledge - Lihat & edit knowledge\n"
             "/qr - Login WhatsApp via QR code\n"
             "/status - Cek status koneksi WhatsApp\n"
             "/config - Lihat konfigurasi saat ini\n"
             "/welcome - Edit pesan sambutan bot\n"
             "/systemprompt - Edit system prompt LLM\n"
-            "/reload - Reload knowledge\n"
             "/restart - Restart koneksi WhatsApp\n"
             "/logout - Logout session WhatsApp"
         )
@@ -243,7 +243,6 @@ async def received_knowledge(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def _finalize_setup(message, context, knowledge: str, brand_name: str, phone: str):
     cfg = load_config()
     cfg["knowledge"]     = knowledge
-    cfg["corpus_url"]    = ""   # legacy field dikosongkan setelah migrasi ke knowledge
     cfg["owner_phone"]   = phone
     cfg["brand_name"]    = brand_name
     cfg["is_setup_done"] = True
@@ -694,21 +693,6 @@ async def cmd_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
-async def cmd_reload(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Reload knowledge dari config.json (tanpa fetch URL)."""
-    cfg = load_config()
-    knowledge = cfg.get("knowledge", "")
-    if not knowledge:
-        await update.message.reply_text("Knowledge belum dikonfigurasi. Gunakan /setup untuk mengisi.")
-        return
-
-    set_knowledge = context.application.bot_data.get("set_knowledge")
-    if set_knowledge:
-        set_knowledge(knowledge)
-        await update.message.reply_text(f"✅ Knowledge berhasil dimuat ulang ({len(knowledge)} karakter).")
-    else:
-        await update.message.reply_text("⚠️ Fungsi set_knowledge tidak ditemukan.")
-
 async def _set_bot_commands(app):
     from telegram import BotCommand
     await app.bot.set_my_commands([
@@ -720,7 +704,6 @@ async def _set_bot_commands(app):
         BotCommand("knowledge",    "Lihat & edit knowledge"),
         BotCommand("welcome",      "Edit pesan sambutan bot"),
         BotCommand("systemprompt", "Edit system prompt LLM"),
-        BotCommand("reload",       "Reload knowledge dari config"),
         BotCommand("restart",      "Restart koneksi WhatsApp"),
         BotCommand("logout",       "Logout session WhatsApp"),
     ])
@@ -799,5 +782,4 @@ def build_telegram_app():
     app.add_handler(CommandHandler("status",  cmd_status))
     app.add_handler(CommandHandler("logout",  cmd_logout))
     app.add_handler(CommandHandler("restart", cmd_restart))
-    app.add_handler(CommandHandler("reload",  cmd_reload))
     return app

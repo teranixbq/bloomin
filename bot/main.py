@@ -5,7 +5,6 @@ import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
-from services.knowledge import load_from_source
 from services.llm import ask_llm
 from services.session import (
     get_sessions, start_session, reset_timer, close_session,
@@ -149,23 +148,7 @@ async def lifespan(app: FastAPI):
 
     if is_setup_done():
         cfg = load_config()
-        
-        # Migration: jika corpus_url ada tapi knowledge kosong, migrasi otomatis
-        if cfg.get("corpus_url") and not cfg.get("knowledge"):
-            print("[migrate] Migrating corpus_url → knowledge...")
-            try:
-                migrated_knowledge = load_from_source(cfg["corpus_url"])
-                cfg["knowledge"] = migrated_knowledge
-                cfg["corpus_url"] = ""  # Clear legacy field
-                from core.config import save_config
-                save_config(cfg)
-                print(f"[migrate] Success: {len(migrated_knowledge)} chars")
-            except Exception as e:
-                print(f"[migrate] Failed: {e}")
-                # Fallback: tetap load dari URL
-                _knowledge = load_from_source(cfg["corpus_url"])
-        else:
-            _knowledge = cfg.get("knowledge", "")
+        _knowledge = cfg.get("knowledge", "")
     else:
         admin_ids = [
             int(x.strip())
