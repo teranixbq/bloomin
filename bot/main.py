@@ -285,7 +285,10 @@ async def webhook(req: Request):
                 f"Saya akan alihkan ke admin."
             )
             
-            # Start owner session (pakai helper dari session.py)
+            # Create session first, then start owner session
+            sessions = get_sessions()
+            if sender_phone not in sessions:
+                start_session(sender_phone)
             start_owner_session(sender_phone)
             
             # Notify WhatsApp admin
