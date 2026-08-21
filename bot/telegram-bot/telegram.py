@@ -1004,10 +1004,25 @@ async def cmd_switchdevice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         for device in connected_devices:
             device_id = device.get("id")
-            is_active = "⭐ (AKTIF)" if device_id == active_device else ""
+            display_name = device.get("display_name", "")
+            jid = device.get("jid", "")
+            
+            # Show name: display_name > jid > device_id
+            if display_name:
+                name = display_name
+            elif jid:
+                name = jid.split("@")[0]
+            else:
+                name = device_id[:8] + "..."
+            
+            # Mark active device as "default" if no display_name
+            if device_id == active_device and not display_name:
+                name = "default"
+            
+            is_active = " ⭐ (AKTIF)" if device_id == active_device else ""
             
             keyboard.append([InlineKeyboardButton(
-                f"📱 {device_id[:8]}... {is_active}",
+                f"📱 {name}{is_active}",
                 callback_data=f"switch_device:{device_id}"
             )])
             
