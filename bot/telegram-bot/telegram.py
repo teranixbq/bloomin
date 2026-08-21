@@ -1094,7 +1094,6 @@ def build_telegram_app():
         entry_points=[
             CommandHandler("worktime", cmd_worktime),
             CallbackQueryHandler(worktime_edit_callback, pattern="^edit_worktime$"),
-            CallbackQueryHandler(worktime_toggle_callback, pattern="^toggle_worktime$"),
         ],
         states={
             WAIT_EDIT_WORKTIME: [
