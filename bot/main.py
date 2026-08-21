@@ -89,18 +89,23 @@ def get_work_time_info() -> str:
 async def _handle_message(sender_phone: str, message: str):
     sessions = get_sessions()
 
-    # Check jam kerja - hanya balas pesan pertama di luar jam kerja
+    # Check jam kerja
     if not is_within_work_time():
-        if sender_phone not in sessions:
+        # Di luar jam kerja - pakai set tracking (no session overhead)
+        if sender_phone not in _notified_outside_hours:
             # Pesan pertama di luar jam kerja
-            start_session(sender_phone, outside_hours=True)
+            _notified_outside_hours.add(sender_phone)
             print(f"[worktime] {sender_phone} di luar jam kerja, kirim info")
             await send_message(sender_phone, get_work_time_info())
         else:
-            # Masih dalam 3 menit, reset timer dan skip
-            reset_timer(sender_phone)
-            print(f"[worktime] {sender_phone} masih dalam 3 menit, skip")
+            # Udah di set, skip (bot mati)
+            print(f"[worktime] {sender_phone} masih di luar jam kerja, skip")
         return
+    
+    # Masuk jam kerja → clear entire set (lazy reset)
+    if _notified_outside_hours:
+        _notified_outside_hours.clear()
+        print("[worktime] Jam kerja dimulai, reset outside hours skip set")
 
     if sender_phone in _processing:
         print(f"[webhook] skip {sender_phone} — masih diproses")
