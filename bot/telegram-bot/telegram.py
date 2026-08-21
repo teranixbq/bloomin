@@ -399,11 +399,23 @@ async def cmd_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         return
     cfg = load_config()
+    knowledge_text = cfg.get("knowledge", "")
+    
+    # Tampilkan isi knowledge, truncate jika terlalu panjang (limit Telegram 4096)
+    if knowledge_text:
+        # Potong jika lebih dari 1500 karakter (sisakan ruang untuk header/footer)
+        if len(knowledge_text) > 1500:
+            display_knowledge = knowledge_text[:1500] + "\n\n... (terpotong, total: " + str(len(knowledge_text)) + " karakter)"
+        else:
+            display_knowledge = knowledge_text
+    else:
+        display_knowledge = "(kosong)"
+    
     await update.message.reply_text(
         f"Konfigurasi saat ini:\n\n"
         f"Setup selesai: {'Ya' if cfg.get('is_setup_done') else 'Belum'}\n"
         f"Corpus URL: {cfg.get('corpus_url', '-') or '-'} (legacy, tidak digunakan lagi)\n"
-        f"Knowledge: {len(cfg.get('knowledge', ''))} karakter\n"
+        f"Knowledge ({len(knowledge_text)} karakter):\n```\n{display_knowledge}\n```\n\n"
         f"Nomor Owner: {cfg.get('owner_phone', '-')}\n"
         f"Device ID: {cfg.get('device_id') or '-'}\n\n"
         "Ketik /setup untuk mengubah konfigurasi."
