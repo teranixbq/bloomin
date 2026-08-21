@@ -239,6 +239,9 @@ async def webhook(req: Request):
     is_from_me = payload.get("is_from_me", False)
     chat_id    = payload.get("chat_id", "")
     message    = payload.get("body", "").strip()
+    
+    # Debug: log full payload structure to understand media detection
+    print(f"[webhook] full payload: {json.dumps(payload, indent=2)}")
 
     if chat_id.endswith("@g.us"):
         return {"status": "ignored"}
@@ -257,6 +260,19 @@ async def webhook(req: Request):
 
     if sender_phone == clean_phone(get_owner_phone()):
         return {"status": "ignored"}
+
+    # Check if message is media (image/video/audio/document)
+    message_type = payload.get("message_type", "")
+    if message_type in ["image", "video", "audio", "document", "sticker", "location", "contact"]:
+        cfg = load_config()
+        brand_name = cfg.get("brand_name", "Bot")
+        await send_message(
+            sender_phone,
+            f"Maaf kak, {brand_name} AI tidak bisa membaca gambar/media 🙏\n\n"
+            f"Silakan hubungi admin kami dengan mengetik *admin* untuk bantuan lebih lanjut."
+        )
+        print(f"[webhook] {sender_phone} sent {message_type}, rejected")
+        return {"status": "media_rejected"}
 
     if not message:
         return {"status": "empty"}
