@@ -244,9 +244,6 @@ async def webhook(req: Request):
     is_from_me = payload.get("is_from_me", False)
     chat_id    = payload.get("chat_id", "")
     message    = payload.get("body", "").strip()
-    
-    # Debug: log full payload structure to understand media detection
-    print(f"[webhook] full payload: {json.dumps(payload, indent=2)}")
 
     if chat_id.endswith("@g.us"):
         return {"status": "ignored"}
