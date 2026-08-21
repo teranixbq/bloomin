@@ -258,7 +258,7 @@ async def webhook(req: Request):
     sender_raw   = payload.get("from", "")
     sender_phone = clean_phone(sender_raw)
 
-    print(f"[webhook] sender={sender_phone} message={repr(message)}")
+    print(f"[webhook] sender={sender_phone} message={repr(message)} payload_keys={list(payload.keys())}")
 
     if sender_phone == clean_phone(get_owner_phone()):
         return {"status": "ignored"}
