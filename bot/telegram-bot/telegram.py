@@ -851,19 +851,16 @@ async def cmd_newlogin(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     except:
                         pass
                     
-                    # Update config dengan device baru
                     cfg = load_config()
-                    old_device = cfg.get("device_id", "Tidak ada")
-                    cfg["device_id"] = device_id
-                    save_config(cfg)
+                    active_device = cfg.get("device_id", "Tidak ada")
                     
                     await update.message.reply_text(
                         f"✅ WhatsApp berhasil terhubung!\n\n"
-                        f"📱 Device ID: `{device_id}`\n"
-                        f"🔄 Bot sekarang menggunakan device ini\n\n"
-                        f"Device lama (`{old_device}`) masih tersimpan tapi tidak aktif.\n\n"
-                        f"Gunakan /listdevice untuk melihat semua device\n"
-                        f"Gunakan /switchdevice untuk berpindah device",
+                        f"📱 Device baru: `{device_id}`\n"
+                        f"📱 Device aktif: `{active_device}`\n\n"
+                        f"Bot masih menggunakan device aktif.\n\n"
+                        f"Gunakan /switchdevice untuk berpindah ke device baru\n"
+                        f"Gunakan /listdevice untuk melihat semua device",
                         parse_mode="Markdown"
                     )
                     return
