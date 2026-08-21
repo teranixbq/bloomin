@@ -8,8 +8,11 @@ def _gdrive_direct_url(url: str) -> str:
         return f"https://drive.google.com/uc?export=download&id={file_id}"
     return url
 
-def load_corpus(source: str) -> str:
-    """Fetch corpus teks dari URL atau file lokal, return sebagai string."""
+def load_from_source(source: str) -> str:
+    """(Legacy) Fetch teks knowledge dari URL atau file lokal.
+
+    Hanya dipakai untuk migrasi satu kali dari corpus_url lama ke "knowledge".
+    """
     if source.startswith("http://") or source.startswith("https://"):
         url = _gdrive_direct_url(source)
         with httpx.Client(follow_redirects=True, timeout=15) as client:
@@ -19,5 +22,5 @@ def load_corpus(source: str) -> str:
     else:
         with open(source, "r", encoding="utf-8") as f:
             text = f.read()
-    print(f"[corpus] Loaded {len(text)} chars from: {source}")
+    print(f"[knowledge] Loaded {len(text)} chars from: {source}")
     return text

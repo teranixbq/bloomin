@@ -5,7 +5,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from dotenv import load_dotenv
-from services.corpus import load_corpus
+from services.knowledge import load_from_source
 from services.llm import ask_llm
 from services.session import (
     get_sessions, start_session, reset_timer, close_session,
@@ -28,7 +28,7 @@ load_dotenv()
 telegram_module = importlib.import_module("telegram-bot.telegram")
 build_telegram_app = telegram_module.build_telegram_app
 
-_corpus: str | None = None
+_knowledge: str | None = None
 _processing: set[str] = set()
 
 MAX_HISTORY = 10  # simpan max 10 pasang pesan (user + assistant)
@@ -40,9 +40,9 @@ def get_owner_phone() -> str:
 def get_welcome_msg() -> str:
     return load_config().get("welcome_msg", MSG_WELCOME_DEFAULT)
 
-def _set_corpus(text: str):
-    global _corpus
-    _corpus = text
+def _set_knowledge(text: str):
+    global _knowledge
+    _knowledge = text
 
 def _is_closing(message: str) -> bool:
     normalized = message.lower().strip().rstrip("!.,")
@@ -113,7 +113,7 @@ async def _handle_message(sender_phone: str, message: str):
     _processing.add(sender_phone)
     try:
         history = session.get("history", [])
-        answer = await ask_llm(_corpus, message, history)
+        answer = await ask_llm(_knowledge, message, history)
 
         if answer is None:
             await send_message(sender_phone, MSG_LLM_ERROR)
@@ -139,17 +139,33 @@ async def _handle_message(sender_phone: str, message: str):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _corpus
+    global _knowledge
 
     tg_app = build_telegram_app()
-    tg_app.bot_data["set_corpus"] = _set_corpus
+    tg_app.bot_data["set_knowledge"] = _set_knowledge
     await tg_app.initialize()
     await tg_app.start()
     await tg_app.updater.start_polling()
 
     if is_setup_done():
         cfg = load_config()
-        _corpus = load_corpus(cfg["corpus_url"])
+        
+        # Migration: jika corpus_url ada tapi knowledge kosong, migrasi otomatis
+        if cfg.get("corpus_url") and not cfg.get("knowledge"):
+            print("[migrate] Migrating corpus_url → knowledge...")
+            try:
+                migrated_knowledge = load_from_source(cfg["corpus_url"])
+                cfg["knowledge"] = migrated_knowledge
+                cfg["corpus_url"] = ""  # Clear legacy field
+                from core.config import save_config
+                save_config(cfg)
+                print(f"[migrate] Success: {len(migrated_knowledge)} chars")
+            except Exception as e:
+                print(f"[migrate] Failed: {e}")
+                # Fallback: tetap load dari URL
+                _knowledge = load_from_source(cfg["corpus_url"])
+        else:
+            _knowledge = cfg.get("knowledge", "")
     else:
         admin_ids = [
             int(x.strip())
@@ -216,7 +232,7 @@ async def webhook(req: Request):
     if not message:
         return {"status": "empty"}
 
-    if _corpus is None:
+    if _knowledge is None:
         await send_message(sender_phone, MSG_NOT_READY)
         return {"status": "not_ready"}
 
@@ -230,8 +246,7 @@ async def health():
     return {
         "status": "ok",
         "setup_done": is_setup_done(),
-        "corpus_chars": len(_corpus) if _corpus else 0,
-        "corpus_url": cfg.get("corpus_url", ""),
+        "knowledge_chars": len(_knowledge) if _knowledge else 0,
         "owner_phone": cfg.get("owner_phone", ""),
         "active_sessions": len(get_sessions()),
     }

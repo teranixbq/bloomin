@@ -5,7 +5,8 @@ from core.constants import MSG_WELCOME_DEFAULT, DEFAULT_SYSTEM_PROMPT
 CONFIG_PATH = os.getenv("CONFIG_PATH", "./config.json")
 
 DEFAULT_CONFIG = {
-    "corpus_url":    "",
+    "knowledge":     "",
+    "corpus_url":    "",   # legacy: hanya dipakai untuk migrasi satu kali ke "knowledge"
     "owner_phone":   "",
     "is_setup_done": False,
     "brand_name":    "Bloomin",
@@ -26,4 +27,5 @@ def save_config(config: dict):
 
 def is_setup_done() -> bool:
     cfg = load_config()
-    return bool(cfg.get("is_setup_done") and cfg.get("corpus_url") and cfg.get("owner_phone"))
+    has_data = bool(cfg.get("knowledge") or cfg.get("corpus_url"))
+    return bool(cfg.get("is_setup_done") and has_data and cfg.get("owner_phone"))
