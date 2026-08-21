@@ -61,13 +61,10 @@ def clean_phone(raw: str) -> str:
 def is_within_work_time() -> bool:
     """Check apakah waktu sekarang dalam jam kerja"""
     cfg = load_config()
-    work_time = cfg.get("work_time", {"enabled": False, "open": "08:00", "close": "17:00", "timezone": "Asia/Jakarta"})
-    
-    if not work_time.get("enabled", False):
-        return True  # Jika tidak diaktifkan, anggap selalu dalam jam kerja
+    work_time = cfg.get("work_time", {"open": "08:00", "close": "17:00"})
     
     try:
-        tz = pytz.timezone(work_time.get("timezone", "Asia/Jakarta"))
+        tz = pytz.timezone("Asia/Jakarta")
         now = datetime.now(tz).time()
         
         open_time = datetime.strptime(work_time["open"], "%H:%M").time()

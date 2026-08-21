@@ -550,66 +550,23 @@ async def cmd_worktime(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         return
     cfg = load_config()
-    work_time = cfg.get("work_time", {"enabled": False, "open": "08:00", "close": "17:00"})
+    work_time = cfg.get("work_time", {"open": "08:00", "close": "17:00"})
     
-    enabled_status = "🟢 Aktif" if work_time.get("enabled", False) else "🔴 Tidak Aktif"
     open_time = work_time.get("open", "08:00")
     close_time = work_time.get("close", "17:00")
     
     msg = (
-        f"*Pengaturan Jam Kerja*\n\n"
-        f"Status: {enabled_status}\n"
+        f"*Jam Kerja*\n\n"
         f"Jam Buka: {open_time}\n"
-        f"Jam Tutup: {close_time}\n"
-        f"Timezone: Asia/Jakarta (WIB)\n\n"
-        f"Jika aktif, bot hanya akan membalas pesan di luar jam kerja dengan informasi bahwa pesan akan dibalas besok.\n"
+        f"Jam Tutup: {close_time}\n\n"
+        f"Bot akan membalas pesan di luar jam kerja dengan informasi bahwa pesan akan dibalas besok."
     )
     
-    toggle_text = "🔴 Matikan" if work_time.get("enabled", False) else "🟢 Aktifkan"
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(toggle_text, callback_data="toggle_worktime")],
         [InlineKeyboardButton("✏️ Edit Jam", callback_data="edit_worktime")]
     ])
     
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=keyboard)
-
-async def worktime_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle klik tombol toggle worktime"""
-    if not is_admin(update):
-        return ConversationHandler.END
-    
-    query = update.callback_query
-    await query.answer()
-    
-    cfg = load_config()
-    work_time = cfg.get("work_time", {"enabled": False, "open": "08:00", "close": "17:00"})
-    
-    # Toggle
-    new_enabled = not work_time.get("enabled", False)
-    work_time["enabled"] = new_enabled
-    cfg["work_time"] = work_time
-    save_config(cfg)
-    
-    enabled_status = "🟢 Aktif" if new_enabled else "🔴 Tidak Aktif"
-    
-    # Refresh tampilan
-    toggle_text = "🔴 Matikan" if new_enabled else "🟢 Aktifkan"
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(toggle_text, callback_data="toggle_worktime")],
-        [InlineKeyboardButton("✏️ Edit Jam", callback_data="edit_worktime")]
-    ])
-    
-    msg = (
-        f"*Pengaturan Jam Kerja*\n\n"
-        f"Status: {enabled_status}\n"
-        f"Jam Buka: {work_time.get('open', '08:00')}\n"
-        f"Jam Tutup: {work_time.get('close', '17:00')}\n"
-        f"Timezone: Asia/Jakarta (WIB)\n\n"
-        f"Jika aktif, bot hanya akan membalas pesan di luar jam kerja dengan informasi bahwa pesan akan dibalas besok.\n"
-    )
-    
-    await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=keyboard)
-    return ConversationHandler.END
 
 async def worktime_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle klik tombol Edit Jam Kerja"""
