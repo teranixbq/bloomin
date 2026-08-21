@@ -86,7 +86,7 @@ async def ensure_device() -> str:
     async with httpx.AsyncClient(auth=gowa_auth()) as client:
         resp = await client.post(
             f"{GOWA_BASE_URL}/devices",
-            json={"name": "Bloomin-Admin"},
+            json={"name": "default"},
             timeout=10,
         )
         resp.raise_for_status()
