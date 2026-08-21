@@ -263,6 +263,22 @@ async def webhook(req: Request):
     if sender_phone == clean_phone(get_owner_phone()):
         return {"status": "ignored"}
 
+    # Check outside hours SEBELUM spam detection dan media handling
+    # Supaya pesan apapun (text/media) di luar jam kerja langsung di-handle
+    if not is_within_work_time():
+        if sender_phone not in _notified_outside_hours:
+            _notified_outside_hours.add(sender_phone)
+            print(f"[worktime] {sender_phone} di luar jam kerja, kirim info")
+            await send_message(sender_phone, get_work_time_info())
+        else:
+            print(f"[worktime] {sender_phone} masih di luar jam kerja, skip")
+        return {"status": "outside_hours"}
+    
+    # Masuk jam kerja → clear entire set (lazy reset)
+    if _notified_outside_hours:
+        _notified_outside_hours.clear()
+        print("[worktime] Jam kerja dimulai, reset outside hours skip set")
+
     # Spam detection: track message timestamps
     import time
     if not hasattr(webhook, '_message_times'):
