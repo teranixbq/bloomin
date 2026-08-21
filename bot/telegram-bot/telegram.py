@@ -401,25 +401,91 @@ async def cmd_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cfg = load_config()
     knowledge_text = cfg.get("knowledge", "")
     
-    # Tampilkan isi knowledge, truncate jika terlalu panjang (limit Telegram 4096)
-    if knowledge_text:
-        # Potong jika lebih dari 1500 karakter (sisakan ruang untuk header/footer)
-        if len(knowledge_text) > 1500:
-            display_knowledge = knowledge_text[:1500] + "\n\n... (terpotong, total: " + str(len(knowledge_text)) + " karakter)"
-        else:
-            display_knowledge = knowledge_text
-    else:
-        display_knowledge = "(kosong)"
-    
     await update.message.reply_text(
         f"Konfigurasi saat ini:\n\n"
         f"Setup selesai: {'Ya' if cfg.get('is_setup_done') else 'Belum'}\n"
-        f"Corpus URL: {cfg.get('corpus_url', '-') or '-'} (legacy, tidak digunakan lagi)\n"
-        f"Knowledge ({len(knowledge_text)} karakter):\n```\n{display_knowledge}\n```\n\n"
+        f"Knowledge: {len(knowledge_text)} karakter (lihat /knowledge)\n"
         f"Nomor Owner: {cfg.get('owner_phone', '-')}\n"
         f"Device ID: {cfg.get('device_id') or '-'}\n\n"
         "Ketik /setup untuk mengubah konfigurasi."
     )
+
+async def cmd_knowledge(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    cfg = load_config()
+    knowledge_text = cfg.get("knowledge", "")
+    
+    if knowledge_text:
+        # Tampilkan isi knowledge dengan tombol Edit
+        msg = f"Knowledge saat ini ({len(knowledge_text)} karakter):\n\n```\n{knowledge_text}\n```"
+        
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✏️ Edit Knowledge", callback_data="edit_knowledge")]
+        ])
+        
+        # Telegram limit 4096 chars
+        if len(msg) > 4000:
+            await update.message.reply_text(
+                msg[:4000] + "\n\n... (terpotong)",
+                parse_mode="Markdown",
+                reply_markup=keyboard
+            )
+        else:
+            await update.message.reply_text(
+                msg,
+                parse_mode="Markdown",
+                reply_markup=keyboard
+            )
+    else:
+        await update.message.reply_text(
+            "Knowledge belum diatur.\n\n"
+            "Ketik /setup untuk menambahkan knowledge."
+        )
+
+async def knowledge_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle klik tombol Edit Knowledge"""
+    if not is_admin(update):
+        return ConversationHandler.END
+    
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        "Kirimkan knowledge baru (teks bebas):\n\n"
+        f"Contoh format:\n```\n{KNOWLEDGE_EXAMPLE}\n```\n\n"
+        "Ketik /cancel untuk membatalkan.",
+        parse_mode="Markdown"
+    )
+    return WAIT_EDIT_KNOWLEDGE
+
+async def received_knowledge_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Terima knowledge baru dari edit mode"""
+    if not is_admin(update):
+        return ConversationHandler.END
+    
+    knowledge_text = update.message.text.strip()
+    
+    if len(knowledge_text) < 20:
+        await update.message.reply_text(
+            "⚠️ Knowledge terlalu pendek (minimal 20 karakter). Coba lagi atau /cancel."
+        )
+        return WAIT_EDIT_KNOWLEDGE
+    
+    cfg = load_config()
+    cfg["knowledge"] = knowledge_text
+    save_config(cfg)
+    
+    # Update knowledge di runtime
+    set_knowledge = context.bot_data.get("set_knowledge")
+    if set_knowledge:
+        set_knowledge(knowledge_text)
+    
+    await update.message.reply_text(
+        f"✅ Knowledge berhasil diperbarui ({len(knowledge_text)} karakter).\n\n"
+        "Ketik /knowledge untuk melihat."
+    )
+    return ConversationHandler.END
 
 async def cmd_qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
@@ -651,6 +717,7 @@ async def _set_bot_commands(app):
         BotCommand("qr",           "Login WhatsApp via QR code"),
         BotCommand("status",       "Cek status koneksi WhatsApp"),
         BotCommand("config",       "Lihat konfigurasi saat ini"),
+        BotCommand("knowledge",    "Lihat & edit knowledge"),
         BotCommand("welcome",      "Edit pesan sambutan bot"),
         BotCommand("systemprompt", "Edit system prompt LLM"),
         BotCommand("reload",       "Reload knowledge dari config"),
@@ -709,9 +776,23 @@ def build_telegram_app():
         fallbacks=[CommandHandler("cancel", cancel_edit)],
     )
 
+    knowledge_conv = ConversationHandler(
+        entry_points=[
+            CommandHandler("knowledge", cmd_knowledge),
+            CallbackQueryHandler(knowledge_edit_callback, pattern="^edit_knowledge$"),
+        ],
+        states={
+            WAIT_EDIT_KNOWLEDGE: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, received_knowledge_edit),
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_edit)],
+    )
+
     app.add_handler(setup_conv)
     app.add_handler(welcome_conv)
     app.add_handler(systemprompt_conv)
+    app.add_handler(knowledge_conv)
     app.add_handler(CommandHandler("start",   cmd_start))
     app.add_handler(CommandHandler("config",  cmd_config))
     app.add_handler(CommandHandler("qr",      cmd_qr))
