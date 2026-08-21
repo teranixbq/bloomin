@@ -20,6 +20,8 @@ from core.constants import (
     CLOSING_KEYWORDS, ADMIN_KEYWORDS, YES_KEYWORDS, NO_KEYWORDS,
     GREETINGS_REPLY,
 )
+from datetime import datetime, time
+import pytz
 
 load_dotenv()
 
@@ -56,9 +58,41 @@ def _has_admin_keyword(message: str) -> bool:
 def clean_phone(raw: str) -> str:
     return raw.split("@")[0]
 
+def is_within_work_time() -> bool:
+    """Check apakah waktu sekarang dalam jam kerja"""
+    cfg = load_config()
+    work_time = cfg.get("work_time", {"enabled": False, "open": "08:00", "close": "17:00", "timezone": "Asia/Jakarta"})
+    
+    if not work_time.get("enabled", False):
+        return True  # Jika tidak diaktifkan, anggap selalu dalam jam kerja
+    
+    try:
+        tz = pytz.timezone(work_time.get("timezone", "Asia/Jakarta"))
+        now = datetime.now(tz).time()
+        
+        open_time = datetime.strptime(work_time["open"], "%H:%M").time()
+        close_time = datetime.strptime(work_time["close"], "%H:%M").time()
+        
+        return open_time <= now <= close_time
+    except Exception as e:
+        print(f"[work_time] Error checking work time: {e}")
+        return True  # Default ke True jika ada error
+
+def get_work_time_info() -> str:
+    """Get info jam kerja untuk pesan di luar jam kerja"""
+    cfg = load_config()
+    work_time = cfg.get("work_time", {"open": "08:00", "close": "17:00"})
+    brand_name = cfg.get("brand_name", "Bloomin")
+    return f"Terima kasih telah menghubungi {brand_name}. Saat ini di luar jam operasional kami ({work_time['open']} - {work_time['close']} WIB). Pesan Anda akan kami balas besok saat jam buka. 😊"
+
 
 async def _handle_message(sender_phone: str, message: str):
     sessions = get_sessions()
+
+    # Check jam kerja - jika di luar jam kerja, balas dengan info dan jangan proses lebih lanjut
+    if not is_within_work_time():
+        await send_message(sender_phone, get_work_time_info())
+        return
 
     if sender_phone in _processing:
         print(f"[webhook] skip {sender_phone} — masih diproses")
