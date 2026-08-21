@@ -271,33 +271,46 @@ async def webhook(req: Request):
     if detected_media:
         cfg = load_config()
         brand_name = cfg.get("brand_name", "Bot")
-        owner_phone = get_owner_phone()
         
-        # Notify user
-        await send_message(
-            sender_phone,
-            f"Maaf kak, {brand_name} AI tidak bisa membaca gambar/media 🙏\n"
-            f"Saya akan alihkan ke admin."
-        )
-        
-        # Create session if not exists, then set waiting_owner
+        # Cek apakah sudah pernah kirim notif media ke user ini
         sessions = get_sessions()
         if sender_phone not in sessions:
             start_session(sender_phone)
         session = sessions[sender_phone]
-        cancel_timer(sender_phone)
-        session["waiting_owner"] = True
-        session["owner_connected"] = False
-        session["timer"] = asyncio.create_task(_owner_session_timer(sender_phone))
         
-        # Notify admin
-        await notify_owner(
-            owner_phone,
-            sender_phone,
-            "Seseorang mengirim media yang tidak diketahui oleh bot"
-        )
+        # Kalau belum pernah forward media, kirim notif dan forward ke admin
+        if not session.get("media_forwarded"):
+            # Notify user (sekali aja)
+            await send_message(
+                sender_phone,
+                f"Maaf kak, {brand_name} AI tidak bisa membaca gambar/media 🙏\n"
+                f"Saya akan alihkan ke admin."
+            )
+            
+            # Set waiting_owner
+            cancel_timer(sender_phone)
+            session["waiting_owner"] = True
+            session["owner_connected"] = False
+            session["media_forwarded"] = True
+            session["timer"] = asyncio.create_task(_owner_session_timer(sender_phone))
+            
+            # Notify Telegram admin
+            admin_ids = [
+                int(x.strip())
+                for x in os.getenv("TELEGRAM_ADMIN_USER_ID", "0").split(",")
+                if x.strip()
+            ]
+            for admin_id in admin_ids:
+                try:
+                    await tg_app.bot.send_message(
+                        chat_id=admin_id,
+                        text=f"📷 User {sender_phone} mengirim media yang tidak bisa dibaca bot"
+                    )
+                except Exception as e:
+                    print(f"[media] gagal kirim notif ke admin {admin_id}: {e}")
+            
+            print(f"[webhook] {sender_phone} sent {detected_media}, forwarded to admin")
         
-        print(f"[webhook] {sender_phone} sent {detected_media}, forwarded to admin")
         return {"status": "media_forwarded"}
 
     # Check outside hours (text messages only)
