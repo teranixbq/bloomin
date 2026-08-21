@@ -901,12 +901,26 @@ async def cmd_listdevice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for idx, device in enumerate(devices, 1):
             device_id = device.get("id")
             state = device.get("state", "unknown")
+            display_name = device.get("display_name", "")
+            jid = device.get("jid", "")
             
             # State emoji
             state_emoji = "🟢" if state == "logged_in" else "🔴"
             active_emoji = "⭐ " if device_id == active_device else ""
             
-            message += f"{idx}. {active_emoji}{state_emoji} `{device_id[:8]}...`\n"
+            # Show name: display_name > jid > device_id
+            if display_name:
+                name = display_name
+            elif jid:
+                name = jid.split("@")[0]
+            else:
+                name = device_id[:8]
+            
+            # Mark active device as "default"
+            if device_id == active_device and not display_name:
+                name = "default"
+            
+            message += f"{idx}. {active_emoji}{state_emoji} *{name}*\n"
             
             # Tombol delete (tidak bisa delete active device)
             if device_id != active_device:
