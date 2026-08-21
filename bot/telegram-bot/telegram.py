@@ -33,6 +33,7 @@ def gowa_auth() -> httpx.BasicAuth | None:
 
 WAIT_KNOWLEDGE, WAIT_OWNER_PHONE, WAIT_BRAND_NAME = range(3)
 WAIT_EDIT_WELCOME, WAIT_EDIT_SYSTEMPROMPT, WAIT_EDIT_KNOWLEDGE = range(3, 6)
+WAIT_EDIT_BRAND, WAIT_EDIT_OWNERPHONE = range(6, 8)
 
 KNOWLEDGE_EXAMPLE = (
     "# JAM OPERASIONAL\n"
@@ -113,15 +114,17 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "Bloomin Bot Manager\n\n"
             "Perintah tersedia:\n"
-            "/setup - Konfigurasi bot (brand, knowledge, owner)\n"
-            "/knowledge - Lihat & edit knowledge\n"
+            "/setup - Setup wizard (step-by-step)\n"
+            "/brand - Edit nama brand\n"
+            "/knowledge - Edit knowledge\n"
+            "/ownerphone - Edit nomor owner\n"
+            "/welcome - Edit pesan welcome\n"
+            "/systemprompt - Edit system prompt\n"
             "/qr - Login WhatsApp via QR code\n"
             "/status - Cek status koneksi WhatsApp\n"
             "/config - Lihat konfigurasi saat ini\n"
-            "/welcome - Edit pesan sambutan bot\n"
-            "/systemprompt - Edit system prompt LLM\n"
             "/restart - Restart koneksi WhatsApp\n"
-            "/logout - Logout session WhatsApp"
+            "/logout - Logout WhatsApp"
         )
 
 def _skip_cancel_keyboard() -> InlineKeyboardMarkup:
@@ -429,6 +432,118 @@ async def cancel_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Dibatalkan.")
     return ConversationHandler.END
 
+async def cmd_brand(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    cfg = load_config()
+    brand_name = cfg.get("brand_name", "Bloomin")
+    
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✏️ Edit Brand", callback_data="edit_brand")]
+    ])
+    
+    await update.message.reply_text(
+        f"Brand saat ini: {brand_name}",
+        reply_markup=keyboard
+    )
+
+async def brand_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return ConversationHandler.END
+    
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        "Kirim nama brand baru untuk mengubah.\n\n"
+        "Tekan tombol Cancel untuk membatalkan.",
+        reply_markup=_cancel_keyboard()
+    )
+    return WAIT_EDIT_BRAND
+
+async def received_brand_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return ConversationHandler.END
+    
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text("Dibatalkan.")
+        return ConversationHandler.END
+    
+    new_brand = update.message.text.strip()
+    if len(new_brand) < 2:
+        await update.message.reply_text(
+            "Nama brand terlalu pendek (minimal 2 karakter). Coba lagi.",
+            reply_markup=_cancel_keyboard()
+        )
+        return WAIT_EDIT_BRAND
+    
+    cfg = load_config()
+    cfg["brand_name"] = new_brand
+    save_config(cfg)
+    
+    await update.message.reply_text(
+        f"✅ Brand berhasil diperbarui menjadi: {new_brand}"
+    )
+    return ConversationHandler.END
+
+async def cmd_ownerphone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    cfg = load_config()
+    owner_phone = cfg.get("owner_phone", "-")
+    
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✏️ Edit Nomor Owner", callback_data="edit_ownerphone")]
+    ])
+    
+    await update.message.reply_text(
+        f"Nomor owner saat ini: {owner_phone}",
+        reply_markup=keyboard
+    )
+
+async def ownerphone_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return ConversationHandler.END
+    
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        "Kirim nomor owner baru (format: 62xxxxxxxxxx) untuk mengubah.\n\n"
+        "Tekan tombol Cancel untuk membatalkan.",
+        reply_markup=_cancel_keyboard()
+    )
+    return WAIT_EDIT_OWNERPHONE
+
+async def received_ownerphone_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return ConversationHandler.END
+    
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text("Dibatalkan.")
+        return ConversationHandler.END
+    
+    new_phone = update.message.text.strip()
+    if not new_phone.startswith("62") or not new_phone.isdigit():
+        await update.message.reply_text(
+            "Format nomor tidak valid. Harus dimulai dengan 62 dan hanya angka.\n"
+            "Contoh: 6281234567890\n\n"
+            "Coba lagi.",
+            reply_markup=_cancel_keyboard()
+        )
+        return WAIT_EDIT_OWNERPHONE
+    
+    cfg = load_config()
+    cfg["owner_phone"] = new_phone
+    save_config(cfg)
+    
+    await update.message.reply_text(
+        f"✅ Nomor owner berhasil diperbarui menjadi: {new_phone}"
+    )
+    return ConversationHandler.END
+
 async def cmd_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         return
@@ -488,8 +603,9 @@ async def knowledge_edit_callback(update: Update, context: ContextTypes.DEFAULT_
     await query.edit_message_text(
         "Kirimkan knowledge baru (teks bebas):\n\n"
         f"Contoh format:\n```\n{KNOWLEDGE_EXAMPLE}\n```\n\n"
-        "Ketik /cancel untuk membatalkan.",
-        parse_mode="Markdown"
+        "Tekan tombol Cancel untuk membatalkan.",
+        parse_mode="Markdown",
+        reply_markup=_cancel_keyboard()
     )
     return WAIT_EDIT_KNOWLEDGE
 
@@ -498,15 +614,23 @@ async def received_knowledge_edit(update: Update, context: ContextTypes.DEFAULT_
     if not is_admin(update):
         return ConversationHandler.END
     
+    # Handle tombol Cancel
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text("Dibatalkan.")
+        return ConversationHandler.END
+    
     knowledge_text = update.message.text.strip()
     
     if len(knowledge_text) < 20:
         await update.message.reply_text(
-            "⚠️ Knowledge terlalu pendek (minimal 20 karakter). Coba lagi atau /cancel."
+            "⚠️ Knowledge terlalu pendek (minimal 20 karakter). Coba lagi.",
+            reply_markup=_cancel_keyboard()
         )
         return WAIT_EDIT_KNOWLEDGE
     
     cfg = load_config()
+    brand_name = cfg.get("brand_name", "Bloomin")
     cfg["knowledge"] = knowledge_text
     save_config(cfg)
     
@@ -515,10 +639,29 @@ async def received_knowledge_edit(update: Update, context: ContextTypes.DEFAULT_
     if set_knowledge:
         set_knowledge(knowledge_text)
     
-    await update.message.reply_text(
-        f"✅ Knowledge berhasil diperbarui ({len(knowledge_text)} karakter).\n\n"
-        "Ketik /knowledge untuk melihat."
-    )
+    # Generate ulang welcome message dari knowledge baru
+    await update.message.reply_text("✅ Knowledge berhasil diperbarui.\n\n⏳ Generating pesan sambutan baru...")
+    
+    from services.llm import generate_welcome_msg
+    welcome_msg = await generate_welcome_msg(knowledge_text, brand_name)
+    
+    if welcome_msg:
+        cfg = load_config()
+        cfg["welcome_msg"] = welcome_msg
+        save_config(cfg)
+        
+        await update.message.reply_text(
+            f"✅ Knowledge berhasil diperbarui ({len(knowledge_text)} karakter).\n\n"
+            f"Pesan sambutan baru:\n{welcome_msg}\n\n"
+            "Ketik /knowledge untuk melihat atau edit ulang."
+        )
+    else:
+        await update.message.reply_text(
+            f"✅ Knowledge berhasil diperbarui ({len(knowledge_text)} karakter).\n\n"
+            "⚠️ Gagal generate pesan sambutan baru. Menggunakan pesan sambutan sebelumnya.\n\n"
+            "Ketik /knowledge untuk melihat atau edit ulang."
+        )
+    
     return ConversationHandler.END
 
 async def cmd_qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -732,15 +875,17 @@ async def _set_bot_commands(app):
     from telegram import BotCommand
     await app.bot.set_my_commands([
         BotCommand("start",        "Tampilkan menu utama"),
-        BotCommand("setup",        "Konfigurasi bot (brand, knowledge, owner)"),
+        BotCommand("setup",        "Setup wizard (step-by-step)"),
+        BotCommand("brand",        "Edit nama brand"),
+        BotCommand("knowledge",    "Edit knowledge"),
+        BotCommand("ownerphone",   "Edit nomor owner"),
+        BotCommand("welcome",      "Edit pesan welcome"),
+        BotCommand("systemprompt", "Edit system prompt"),
         BotCommand("qr",           "Login WhatsApp via QR code"),
         BotCommand("status",       "Cek status koneksi WhatsApp"),
         BotCommand("config",       "Lihat konfigurasi saat ini"),
-        BotCommand("knowledge",    "Lihat & edit knowledge"),
-        BotCommand("welcome",      "Edit pesan sambutan bot"),
-        BotCommand("systemprompt", "Edit system prompt LLM"),
         BotCommand("restart",      "Restart koneksi WhatsApp"),
-        BotCommand("logout",       "Logout session WhatsApp"),
+        BotCommand("logout",       "Logout WhatsApp"),
     ])
 
 def build_telegram_app():
@@ -780,7 +925,7 @@ def build_telegram_app():
         states={
             WAIT_EDIT_WELCOME: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, received_welcome_msg),
-                CallbackQueryHandler(received_welcome_msg, pattern="^edit_cancel$"),
+                CallbackQueryHandler(cancel_edit, pattern="^edit_cancel$"),
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel_edit)],
@@ -794,7 +939,7 @@ def build_telegram_app():
         states={
             WAIT_EDIT_SYSTEMPROMPT: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, received_system_prompt),
-                CallbackQueryHandler(received_system_prompt, pattern="^edit_cancel$"),
+                CallbackQueryHandler(cancel_edit, pattern="^edit_cancel$"),
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel_edit)],
@@ -808,6 +953,35 @@ def build_telegram_app():
         states={
             WAIT_EDIT_KNOWLEDGE: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, received_knowledge_edit),
+                CallbackQueryHandler(cancel_edit, pattern="^edit_cancel$"),
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_edit)],
+    )
+
+    brand_conv = ConversationHandler(
+        entry_points=[
+            CommandHandler("brand", cmd_brand),
+            CallbackQueryHandler(brand_edit_callback, pattern="^edit_brand$"),
+        ],
+        states={
+            WAIT_EDIT_BRAND: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, received_brand_edit),
+                CallbackQueryHandler(cancel_edit, pattern="^edit_cancel$"),
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_edit)],
+    )
+
+    ownerphone_conv = ConversationHandler(
+        entry_points=[
+            CommandHandler("ownerphone", cmd_ownerphone),
+            CallbackQueryHandler(ownerphone_edit_callback, pattern="^edit_ownerphone$"),
+        ],
+        states={
+            WAIT_EDIT_OWNERPHONE: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, received_ownerphone_edit),
+                CallbackQueryHandler(cancel_edit, pattern="^edit_cancel$"),
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel_edit)],
@@ -817,6 +991,8 @@ def build_telegram_app():
     app.add_handler(welcome_conv)
     app.add_handler(systemprompt_conv)
     app.add_handler(knowledge_conv)
+    app.add_handler(brand_conv)
+    app.add_handler(ownerphone_conv)
     app.add_handler(CommandHandler("start",   cmd_start))
     app.add_handler(CommandHandler("config",  cmd_config))
     app.add_handler(CommandHandler("qr",      cmd_qr))
