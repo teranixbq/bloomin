@@ -161,8 +161,10 @@ async def _handle_message(sender_phone: str, message: str):
         if len(session["history"]) > MAX_HISTORY * 2:
             session["history"] = session["history"][-(MAX_HISTORY * 2):]
 
-        # Tambahkan credit ke setiap response AI
-        answer_with_credit = f"{answer}\n\n*_Bloomin AI_*"
+        # Tambahkan credit ke setiap response AI (pakai brand name)
+        cfg = load_config()
+        brand_name = cfg.get("brand_name", "").strip() or "Bot AI"
+        answer_with_credit = f"{answer}\n\n*_{brand_name} AI_*"
         await send_message(sender_phone, answer_with_credit)
 
     finally:
