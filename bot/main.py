@@ -42,7 +42,8 @@ def get_welcome_msg() -> str:
     return load_config().get("welcome_msg", MSG_WELCOME_DEFAULT)
 
 # Track nomor yang sudah dikasih info di luar jam kerja
-_notified_outside_hours = set()
+_notified_outside_hours: set[str] = set()
+_media_forwarded_users: set[str] = set()  # Track users yang udah di-forward media
 
 def _set_knowledge(text: str):
     global _knowledge
@@ -274,12 +275,9 @@ async def webhook(req: Request):
         owner_phone = get_owner_phone()
         
         # Cek apakah sudah pernah forward media ke user ini
-        sessions = get_sessions()
-        if sender_phone not in sessions:
-            start_session(sender_phone)
-        session = sessions[sender_phone]
-        
-        if not session.get("media_forwarded"):
+        if sender_phone not in _media_forwarded_users:
+            _media_forwarded_users.add(sender_phone)
+            
             # Notify user (sekali aja)
             await send_message(
                 sender_phone,
@@ -287,11 +285,14 @@ async def webhook(req: Request):
                 f"Saya akan alihkan ke admin."
             )
             
-            # Set waiting_owner
+            # Create session dan set waiting_owner
+            sessions = get_sessions()
+            if sender_phone not in sessions:
+                start_session(sender_phone)
+            session = sessions[sender_phone]
             cancel_timer(sender_phone)
             session["waiting_owner"] = True
             session["owner_connected"] = False
-            session["media_forwarded"] = True
             session["timer"] = asyncio.create_task(_owner_session_timer(sender_phone))
             
             # Notify WhatsApp admin
