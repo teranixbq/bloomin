@@ -297,20 +297,43 @@ async def webhook(req: Request):
     
     # Check if spam (5+ messages in 10 seconds)
     if len(webhook._message_times[sender_phone]) >= 5:
-        session = get_sessions().get(sender_phone, {})
-        if not session.get("spam_notified"):
-            cfg = load_config()
-            brand_name = cfg.get("brand_name", "Bot")
-            await send_message(
-                sender_phone,
-                f"Hai kak, sepertinya kakak mengirim banyak pesan berturut-turut 😊\n\n"
-                f"Apakah kakak ingin langsung terhubung dengan admin {brand_name}?\n\n"
-                f"Balas *ya* untuk dialihkan ke admin, atau lanjut chat dengan AI kami."
-            )
-            session["spam_notified"] = True
-            session["waiting_spam_confirm"] = True
-            print(f"[spam] {sender_phone} sent {len(webhook._message_times[sender_phone])} messages in 10s")
-        return {"status": "spam_detected"}
+        cfg = load_config()
+        brand_name = cfg.get("brand_name", "Bot")
+        owner_phone = get_owner_phone()
+        
+        # Cek apakah sudah pernah di-forward ke admin
+        sessions = get_sessions()
+        if sender_phone in sessions and sessions[sender_phone].get("spam_forwarded"):
+            # Sudah di-forward, skip semua pesan berikutnya
+            print(f"[spam] {sender_phone} sudah di-forward ke admin, skip")
+            return {"status": "spam_skip"}
+        
+        # Notify user
+        await send_message(
+            sender_phone,
+            f"Hai kak, sepertinya kakak mengirim banyak pesan berturut-turut 😊\n"
+            f"Saya akan alihkan ke admin {brand_name} untuk membantu."
+        )
+        
+        # Create session dan set waiting_owner (sama kayak media forwarding)
+        if sender_phone not in sessions:
+            start_session(sender_phone)
+        session = sessions[sender_phone]
+        cancel_timer(sender_phone)
+        session["waiting_owner"] = True
+        session["owner_connected"] = False
+        session["spam_forwarded"] = True
+        session["timer"] = asyncio.create_task(_owner_session_timer(sender_phone))
+        
+        # Notify admin
+        await notify_owner(
+            owner_phone,
+            sender_phone,
+            "Seseorang melakukan pesan berturut-turut/spamming, coba lihat apa yang dia tanya"
+        )
+        
+        print(f"[spam] {sender_phone} sent {len(webhook._message_times[sender_phone])} messages in 10s, forwarded to admin")
+        return {"status": "spam_forwarded"}
 
     # Check if message is media (image/video/audio/document)
     message_type = payload.get("message_type", "")
