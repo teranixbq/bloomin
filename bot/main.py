@@ -271,14 +271,14 @@ async def webhook(req: Request):
     if detected_media:
         cfg = load_config()
         brand_name = cfg.get("brand_name", "Bot")
+        owner_phone = get_owner_phone()
         
-        # Cek apakah sudah pernah kirim notif media ke user ini
+        # Cek apakah sudah pernah forward media ke user ini
         sessions = get_sessions()
         if sender_phone not in sessions:
             start_session(sender_phone)
         session = sessions[sender_phone]
         
-        # Kalau belum pernah forward media, kirim notif dan forward ke admin
         if not session.get("media_forwarded"):
             # Notify user (sekali aja)
             await send_message(
@@ -294,20 +294,12 @@ async def webhook(req: Request):
             session["media_forwarded"] = True
             session["timer"] = asyncio.create_task(_owner_session_timer(sender_phone))
             
-            # Notify Telegram admin
-            admin_ids = [
-                int(x.strip())
-                for x in os.getenv("TELEGRAM_ADMIN_USER_ID", "0").split(",")
-                if x.strip()
-            ]
-            for admin_id in admin_ids:
-                try:
-                    await tg_app.bot.send_message(
-                        chat_id=admin_id,
-                        text=f"📷 User {sender_phone} mengirim media yang tidak bisa dibaca bot"
-                    )
-                except Exception as e:
-                    print(f"[media] gagal kirim notif ke admin {admin_id}: {e}")
+            # Notify WhatsApp admin
+            await notify_owner(
+                owner_phone,
+                sender_phone,
+                "Seseorang mengirim media yang tidak diketahui oleh bot"
+            )
             
             print(f"[webhook] {sender_phone} sent {detected_media}, forwarded to admin")
         
