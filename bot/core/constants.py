@@ -131,5 +131,5 @@ DEFAULT_SYSTEM_PROMPT = (
     "- Jangan gunakan # atau ** (tidak didukung WhatsApp)\n"
     "- Boleh gunakan emoji secukupnya agar ramah\n"
     "- Pisahkan setiap item dengan baris baru\n\n"
-    "Informasi toko:\n{corpus}"
+    "Informasi toko:\n{knowledge}"
 )

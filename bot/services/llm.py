@@ -8,18 +8,22 @@ LLM_MODEL      = os.getenv("LLM_MODEL", "deepseek-chat")
 LLM_TIMEOUT    = float(os.getenv("LLM_TIMEOUT", "10"))
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "300"))
 
-def _get_system_prompt(corpus: str) -> str:
+def _get_system_prompt(knowledge: str) -> str:
     cfg = load_config()
     template = cfg.get("system_prompt", "")
     brand_name = cfg.get("brand_name", "Bloomin")
     filled = template.replace("{brand_name}", brand_name)
-    return filled.format(corpus=corpus) if "{corpus}" in filled else filled + f"\n\n{corpus}"
+    if "{knowledge}" in filled:
+        return filled.format(knowledge=knowledge)
+    if "{corpus}" in filled:  # template lama yang belum diupdate
+        return filled.format(corpus=knowledge)
+    return filled + f"\n\n{knowledge}"
 
-async def ask_llm(corpus: str, query: str, history: list[dict] | None = None) -> str | None:
+async def ask_llm(knowledge: str, query: str, history: list[dict] | None = None) -> str | None:
     if not LLM_API_KEY:
         return None
 
-    system = _get_system_prompt(corpus)
+    system = _get_system_prompt(knowledge)
 
     # Build messages: system + history (max 10 terakhir) + query terbaru
     messages = [{"role": "system", "content": system}]
@@ -59,7 +63,7 @@ async def ask_llm(corpus: str, query: str, history: list[dict] | None = None) ->
         print(f"[llm] exception: {e}")
         return None
 
-async def generate_welcome_msg(corpus: str, brand_name: str) -> str | None:
+async def generate_welcome_msg(knowledge: str, brand_name: str) -> str | None:
     if not LLM_API_KEY:
         return None
 
@@ -67,12 +71,12 @@ async def generate_welcome_msg(corpus: str, brand_name: str) -> str | None:
         f"Berdasarkan informasi toko berikut, buat pesan sambutan WhatsApp yang singkat dan menarik.\n\n"
         f"Aturan:\n"
         f"- Gunakan nama brand: {brand_name}\n"
-        f"- Sebutkan 3-5 topik yang bisa ditanyakan customer berdasarkan isi corpus\n"
+        f"- Sebutkan 3-5 topik yang bisa ditanyakan customer berdasarkan isi knowledge\n"
         f"- Format WhatsApp: bold pakai *teks*, list pakai • bullet\n"
         f"- Akhiri dengan \"Ketik /admin kalau ingin langsung bicara dengan admin kami 😊\"\n"
         f"- Maksimal 10 baris\n"
         f"- Jangan terlalu formal, gunakan bahasa ramah\n\n"
-        f"Informasi toko:\n{corpus}"
+        f"Informasi toko:\n{knowledge}"
     )
 
     try:

@@ -31,8 +31,28 @@ def gowa_auth() -> httpx.BasicAuth | None:
     user, passwd = GOWA_BASIC_AUTH.split(":", 1)
     return httpx.BasicAuth(user, passwd)
 
-WAIT_CORPUS_URL, WAIT_OWNER_PHONE, WAIT_BRAND_NAME = range(3)
-WAIT_EDIT_WELCOME, WAIT_EDIT_SYSTEMPROMPT = range(3, 5)
+WAIT_KNOWLEDGE, WAIT_OWNER_PHONE, WAIT_BRAND_NAME = range(3)
+WAIT_EDIT_WELCOME, WAIT_EDIT_SYSTEMPROMPT, WAIT_EDIT_KNOWLEDGE = range(3, 6)
+
+KNOWLEDGE_EXAMPLE = (
+    "# JAM OPERASIONAL\n"
+    "----------\n"
+    "Senin - Jumat: 09.00 - 18.00\n"
+    "Sabtu: 09.00 - 15.00\n"
+    "Minggu & Hari Libur: Tutup\n\n"
+    "# ALAMAT\n"
+    "---------\n"
+    "Jl. Contoh No. 123, Kota ABC\n\n"
+    "# PRODUK / LAYANAN\n"
+    "---------\n"
+    "1. Produk A - Rp 50.000\n"
+    "2. Produk B - Rp 75.000\n\n"
+    "# KONTAK\n"
+    "---------\n"
+    "WhatsApp: 0812-3456-7890\n"
+    "Instagram: @tokosaya\n"
+    "Email: info@tokosaya.com"
+)
 
 def is_admin(update: Update) -> bool:
     return update.effective_user.id in TELEGRAM_ADMIN_IDS
@@ -93,13 +113,13 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "Bloomin Bot Manager\n\n"
             "Perintah tersedia:\n"
-            "/setup - Konfigurasi bot (brand, corpus, owner)\n"
+            "/setup - Konfigurasi bot (brand, knowledge, owner)\n"
             "/qr - Login WhatsApp via QR code\n"
             "/status - Cek status koneksi WhatsApp\n"
             "/config - Lihat konfigurasi saat ini\n"
             "/welcome - Edit pesan sambutan bot\n"
             "/systemprompt - Edit system prompt LLM\n"
-            "/reload - Reload corpus dari Google Drive\n"
+            "/reload - Reload knowledge\n"
             "/restart - Restart koneksi WhatsApp\n"
             "/logout - Logout session WhatsApp"
         )
@@ -139,15 +159,18 @@ async def received_brand_name(update: Update, context: ContextTypes.DEFAULT_TYPE
             cfg = load_config()
             brand_name = cfg.get("brand_name", "Bloomin")
             context.user_data["brand_name"] = brand_name
-            current_url = cfg.get("corpus_url", "-")
+            current_chars = len(cfg.get("knowledge", ""))
             await query.edit_message_text(
                 f"Brand dipertahankan: {brand_name}\n\n"
-                "Langkah 2/3: Kirim URL Google Drive untuk file corpus toko.\n\n"
-                f"Nilai saat ini: {current_url}\n"
-                "Kirim URL baru atau tekan Skip untuk mempertahankan.",
+                "Langkah 2/3: Kirim *Knowledge* toko kamu — data/informasi yang dipakai bot "
+                "untuk menjawab otomatis (jam operasional, alamat, harga, cara pesan, dll).\n\n"
+                f"Nilai saat ini: {current_chars} karakter\n\n"
+                "Contoh format:\n"
+                f"{KNOWLEDGE_EXAMPLE}\n\n"
+                "Kirim knowledge baru atau tekan Skip untuk mempertahankan.",
                 reply_markup=_skip_cancel_keyboard(),
             )
-            return WAIT_CORPUS_URL
+            return WAIT_KNOWLEDGE
 
     brand_name = update.message.text.strip()
     if len(brand_name) < 2 or len(brand_name) > 50:
@@ -159,17 +182,20 @@ async def received_brand_name(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     context.user_data["brand_name"] = brand_name
     cfg = load_config()
-    current_url = cfg.get("corpus_url", "-")
+    current_chars = len(cfg.get("knowledge", ""))
     await update.message.reply_text(
         f"Nama brand: {brand_name}\n\n"
-        "Langkah 2/3: Kirim URL Google Drive untuk file corpus toko.\n\n"
-        f"Nilai saat ini: {current_url}\n"
-        "Kirim URL baru atau tekan Skip untuk mempertahankan.",
+        "Langkah 2/3: Kirim *Knowledge* toko kamu — data/informasi yang dipakai bot "
+        "untuk menjawab otomatis (jam operasional, alamat, harga, cara pesan, dll).\n\n"
+        f"Nilai saat ini: {current_chars} karakter\n\n"
+        "Contoh format:\n"
+        f"{KNOWLEDGE_EXAMPLE}\n\n"
+        "Kirim knowledge baru atau tekan Skip untuk mempertahankan.",
         reply_markup=_skip_cancel_keyboard(),
     )
-    return WAIT_CORPUS_URL
+    return WAIT_KNOWLEDGE
 
-async def received_corpus_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def received_knowledge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         return ConversationHandler.END
 
@@ -181,11 +207,11 @@ async def received_corpus_url(update: Update, context: ContextTypes.DEFAULT_TYPE
             return ConversationHandler.END
         elif query.data == "setup_skip":
             cfg = load_config()
-            url = cfg.get("corpus_url", "-")
-            context.user_data["corpus_url"] = url
+            knowledge = cfg.get("knowledge", "")
+            context.user_data["knowledge"] = knowledge
             current_phone = cfg.get("owner_phone", "-")
             await query.edit_message_text(
-                f"Corpus URL dipertahankan.\n\n"
+                f"Knowledge dipertahankan ({len(knowledge)} karakter).\n\n"
                 "Langkah 3/3: Kirim nomor WhatsApp owner untuk menerima notifikasi.\n\n"
                 f"Nilai saat ini: {current_phone}\n"
                 "Kirim nomor baru atau tekan Skip untuk mempertahankan.",
@@ -193,19 +219,20 @@ async def received_corpus_url(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
             return WAIT_OWNER_PHONE
 
-    url = update.message.text.strip()
-    if not (url.startswith("http://") or url.startswith("https://")):
+    knowledge = update.message.text.strip()
+    if len(knowledge) < 20:
         await update.message.reply_text(
-            "URL tidak valid. Harus dimulai dengan https://\nCoba lagi:",
+            "Knowledge terlalu singkat (minimal 20 karakter). "
+            "Isi informasi toko seperti jam operasional, alamat, harga, dll.\nCoba lagi:",
             reply_markup=_skip_cancel_keyboard(),
         )
-        return WAIT_CORPUS_URL
+        return WAIT_KNOWLEDGE
 
-    context.user_data["corpus_url"] = url
+    context.user_data["knowledge"] = knowledge
     cfg = load_config()
     current_phone = cfg.get("owner_phone", "-")
     await update.message.reply_text(
-        "URL corpus tersimpan.\n\n"
+        f"Knowledge tersimpan sementara ({len(knowledge)} karakter).\n\n"
         "Langkah 3/3: Kirim nomor WhatsApp owner untuk menerima notifikasi.\n\n"
         f"Nilai saat ini: {current_phone}\n"
         "Kirim nomor baru atau tekan Skip untuk mempertahankan.",
@@ -213,25 +240,23 @@ async def received_corpus_url(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
     return WAIT_OWNER_PHONE
 
-async def _finalize_setup(message, context, corpus_url: str, brand_name: str, phone: str):
+async def _finalize_setup(message, context, knowledge: str, brand_name: str, phone: str):
     cfg = load_config()
-    cfg["corpus_url"]    = corpus_url
+    cfg["knowledge"]     = knowledge
+    cfg["corpus_url"]    = ""   # legacy field dikosongkan setelah migrasi ke knowledge
     cfg["owner_phone"]   = phone
     cfg["brand_name"]    = brand_name
     cfg["is_setup_done"] = True
     save_config(cfg)
 
-    await message.reply_text("Memuat corpus dari URL yang diberikan...")
     try:
-        from services.corpus import load_corpus
         from services.llm import generate_welcome_msg
-        corpus_text = load_corpus(corpus_url)
-        set_corpus = context.application.bot_data.get("set_corpus")
-        if set_corpus:
-            set_corpus(corpus_text)
+        set_knowledge = context.application.bot_data.get("set_knowledge")
+        if set_knowledge:
+            set_knowledge(knowledge)
 
-        await message.reply_text("Generating pesan sambutan dari corpus...")
-        welcome_msg = await generate_welcome_msg(corpus_text, brand_name)
+        await message.reply_text("Generating pesan sambutan dari knowledge...")
+        welcome_msg = await generate_welcome_msg(knowledge, brand_name)
         if welcome_msg:
             cfg = load_config()
             cfg["welcome_msg"] = welcome_msg
@@ -240,17 +265,15 @@ async def _finalize_setup(message, context, corpus_url: str, brand_name: str, ph
         await message.reply_text(
             f"Konfigurasi tersimpan!\n\n"
             f"Brand: {brand_name}\n"
-            f"Corpus URL: {corpus_url}\n"
             f"Nomor Owner: {phone}\n"
-            f"Corpus: {len(corpus_text)} karakter\n\n"
+            f"Knowledge: {len(knowledge)} karakter\n\n"
             + (f"Pesan sambutan:\n{welcome_msg}\n\n" if welcome_msg else "Pesan sambutan menggunakan default.\n\n")
             + "Langkah selanjutnya: ketik /qr untuk login WhatsApp.\n"
               "Bot belum aktif sampai QR di-scan."
         )
     except Exception as e:
         await message.reply_text(
-            f"Gagal memuat corpus: {e}\n"
-            "Periksa URL Google Drive dan pastikan file bisa diakses publik.\n"
+            f"Gagal memproses knowledge: {e}\n"
             "Ketik /setup untuk coba lagi."
         )
         cfg["is_setup_done"] = False
@@ -270,10 +293,10 @@ async def received_owner_phone(update: Update, context: ContextTypes.DEFAULT_TYP
             return ConversationHandler.END
         elif query.data == "setup_skip":
             phone      = cfg.get("owner_phone", "")
-            corpus_url = context.user_data.get("corpus_url", cfg.get("corpus_url", ""))
+            knowledge  = context.user_data.get("knowledge", cfg.get("knowledge", ""))
             brand_name = context.user_data.get("brand_name", cfg.get("brand_name", "Bloomin"))
             await query.edit_message_text(f"Nomor owner dipertahankan: {phone}")
-            await _finalize_setup(query.message, context, corpus_url, brand_name, phone)
+            await _finalize_setup(query.message, context, knowledge, brand_name, phone)
             return ConversationHandler.END
 
     phone = update.message.text.strip()
@@ -285,9 +308,9 @@ async def received_owner_phone(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return WAIT_OWNER_PHONE
 
-    corpus_url = context.user_data.get("corpus_url", cfg.get("corpus_url", ""))
+    knowledge  = context.user_data.get("knowledge", cfg.get("knowledge", ""))
     brand_name = context.user_data.get("brand_name", cfg.get("brand_name", "Bloomin"))
-    await _finalize_setup(update.message, context, corpus_url, brand_name, phone)
+    await _finalize_setup(update.message, context, knowledge, brand_name, phone)
     return ConversationHandler.END
 
 async def cancel_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -379,8 +402,9 @@ async def cmd_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"Konfigurasi saat ini:\n\n"
         f"Setup selesai: {'Ya' if cfg.get('is_setup_done') else 'Belum'}\n"
-        f"Corpus URL: {cfg.get('corpus_url') or '-'}\n"
-        f"Nomor Owner: {cfg.get('owner_phone') or '-'}\n"
+        f"Corpus URL: {cfg.get('corpus_url', '-') or '-'} (legacy, tidak digunakan lagi)\n"
+        f"Knowledge: {len(cfg.get('knowledge', ''))} karakter\n"
+        f"Nomor Owner: {cfg.get('owner_phone', '-')}\n"
         f"Device ID: {cfg.get('device_id') or '-'}\n\n"
         "Ketik /setup untuk mengubah konfigurasi."
     )
@@ -593,39 +617,31 @@ async def cmd_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Error: {e}")
 
 async def cmd_reload(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update):
+    """Reload knowledge dari config.json (tanpa fetch URL)."""
+    cfg = load_config()
+    knowledge = cfg.get("knowledge", "")
+    if not knowledge:
+        await update.message.reply_text("Knowledge belum dikonfigurasi. Gunakan /setup untuk mengisi.")
         return
-    await update.message.reply_text("Memuat ulang corpus dari Google Drive...")
-    try:
-        from services.corpus import load_corpus
-        cfg = load_config()
-        corpus_url = cfg.get("corpus_url", "")
-        if not corpus_url:
-            await update.message.reply_text(
-                "Corpus URL belum dikonfigurasi. Selesaikan /setup terlebih dahulu."
-            )
-            return
-        corpus_text = load_corpus(corpus_url)
-        set_corpus = context.application.bot_data.get("set_corpus")
-        if set_corpus:
-            set_corpus(corpus_text)
-        await update.message.reply_text(
-            f"Corpus berhasil dimuat ulang.\n{len(corpus_text)} karakter dimuat."
-        )
-    except Exception as e:
-        await update.message.reply_text(f"Gagal reload corpus: {e}")
+
+    set_knowledge = context.application.bot_data.get("set_knowledge")
+    if set_knowledge:
+        set_knowledge(knowledge)
+        await update.message.reply_text(f"✅ Knowledge berhasil dimuat ulang ({len(knowledge)} karakter).")
+    else:
+        await update.message.reply_text("⚠️ Fungsi set_knowledge tidak ditemukan.")
 
 async def _set_bot_commands(app):
     from telegram import BotCommand
     await app.bot.set_my_commands([
         BotCommand("start",        "Tampilkan menu utama"),
-        BotCommand("setup",        "Konfigurasi bot (brand, corpus, owner)"),
+        BotCommand("setup",        "Konfigurasi bot (brand, knowledge, owner)"),
         BotCommand("qr",           "Login WhatsApp via QR code"),
         BotCommand("status",       "Cek status koneksi WhatsApp"),
         BotCommand("config",       "Lihat konfigurasi saat ini"),
         BotCommand("welcome",      "Edit pesan sambutan bot"),
         BotCommand("systemprompt", "Edit system prompt LLM"),
-        BotCommand("reload",       "Reload corpus dari Google Drive"),
+        BotCommand("reload",       "Reload knowledge dari config"),
         BotCommand("restart",      "Restart koneksi WhatsApp"),
         BotCommand("logout",       "Logout session WhatsApp"),
     ])
@@ -645,9 +661,9 @@ def build_telegram_app():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, received_brand_name),
                 CallbackQueryHandler(received_brand_name, pattern="^setup_"),
             ],
-            WAIT_CORPUS_URL:  [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, received_corpus_url),
-                CallbackQueryHandler(received_corpus_url, pattern="^setup_"),
+            WAIT_KNOWLEDGE:  [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, received_knowledge),
+                CallbackQueryHandler(received_knowledge, pattern="^setup_"),
             ],
             WAIT_OWNER_PHONE: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, received_owner_phone),
