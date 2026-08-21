@@ -264,8 +264,11 @@ async def webhook(req: Request):
         return {"status": "ignored"}
 
     # Check media FIRST - always forward to admin regardless of time
-    message_type = payload.get("message_type", "")
-    if message_type in ["image", "video", "audio", "document", "sticker", "location", "contact"]:
+    # GOWA kirim media sebagai key langsung di payload (image, video, audio, document, dll)
+    media_types = ["image", "video", "audio", "document", "sticker", "location", "contact"]
+    detected_media = next((m for m in media_types if m in payload), None)
+    
+    if detected_media:
         cfg = load_config()
         brand_name = cfg.get("brand_name", "Bot")
         owner_phone = get_owner_phone()
@@ -294,7 +297,7 @@ async def webhook(req: Request):
             "Seseorang mengirim media yang tidak diketahui oleh bot"
         )
         
-        print(f"[webhook] {sender_phone} sent {message_type}, forwarded to admin")
+        print(f"[webhook] {sender_phone} sent {detected_media}, forwarded to admin")
         return {"status": "media_forwarded"}
 
     # Check outside hours (text messages only)
