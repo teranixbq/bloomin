@@ -261,18 +261,72 @@ async def webhook(req: Request):
     if sender_phone == clean_phone(get_owner_phone()):
         return {"status": "ignored"}
 
+    # Spam detection: track message timestamps
+    import time
+    if not hasattr(webhook, '_message_times'):
+        webhook._message_times = {}
+    
+    now = time.time()
+    if sender_phone not in webhook._message_times:
+        webhook._message_times[sender_phone] = []
+    
+    # Keep only last 10 seconds of messages
+    webhook._message_times[sender_phone] = [
+        t for t in webhook._message_times[sender_phone] 
+        if now - t < 10
+    ]
+    webhook._message_times[sender_phone].append(now)
+    
+    # Check if spam (5+ messages in 10 seconds)
+    if len(webhook._message_times[sender_phone]) >= 5:
+        session = get_sessions().get(sender_phone, {})
+        if not session.get("spam_notified"):
+            cfg = load_config()
+            brand_name = cfg.get("brand_name", "Bot")
+            await send_message(
+                sender_phone,
+                f"Hai kak, sepertinya kakak mengirim banyak pesan berturut-turut 😊\n\n"
+                f"Apakah kakak ingin langsung terhubung dengan admin {brand_name}?\n\n"
+                f"Balas *ya* untuk dialihkan ke admin, atau lanjut chat dengan AI kami."
+            )
+            session["spam_notified"] = True
+            session["waiting_spam_confirm"] = True
+            print(f"[spam] {sender_phone} sent {len(webhook._message_times[sender_phone])} messages in 10s")
+        return {"status": "spam_detected"}
+
     # Check if message is media (image/video/audio/document)
     message_type = payload.get("message_type", "")
     if message_type in ["image", "video", "audio", "document", "sticker", "location", "contact"]:
         cfg = load_config()
         brand_name = cfg.get("brand_name", "Bot")
+        owner_phone = get_owner_phone()
+        
+        # Notify user
         await send_message(
             sender_phone,
-            f"Maaf kak, {brand_name} AI tidak bisa membaca gambar/media 🙏\n\n"
-            f"Silakan hubungi admin kami dengan mengetik *admin* untuk bantuan lebih lanjut."
+            f"Maaf kak, {brand_name} AI tidak bisa membaca gambar/media 🙏\n"
+            f"Saya akan alihkan ke admin."
         )
-        print(f"[webhook] {sender_phone} sent {message_type}, rejected")
-        return {"status": "media_rejected"}
+        
+        # Create session if not exists, then set waiting_owner
+        sessions = get_sessions()
+        if sender_phone not in sessions:
+            start_session(sender_phone)
+        session = sessions[sender_phone]
+        cancel_timer(sender_phone)
+        session["waiting_owner"] = True
+        session["owner_connected"] = False
+        session["timer"] = asyncio.create_task(_owner_session_timer(sender_phone))
+        
+        # Notify admin
+        await notify_owner(
+            owner_phone,
+            sender_phone,
+            "Seseorang mengirim media yang tidak diketahui oleh bot"
+        )
+        
+        print(f"[webhook] {sender_phone} sent {message_type}, forwarded to admin")
+        return {"status": "media_forwarded"}
 
     if not message:
         return {"status": "empty"}
