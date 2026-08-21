@@ -11,6 +11,7 @@ DEFAULT_CONFIG = {
     "brand_name":    "Bloomin",
     "welcome_msg":   MSG_WELCOME_DEFAULT,
     "system_prompt": DEFAULT_SYSTEM_PROMPT,
+    "work_time":     {"enabled": False, "open": "08:00", "close": "17:00", "timezone": "Asia/Jakarta"},
 }
 
 def load_config() -> dict:

@@ -33,7 +33,7 @@ def gowa_auth() -> httpx.BasicAuth | None:
 
 WAIT_KNOWLEDGE, WAIT_OWNER_PHONE, WAIT_BRAND_NAME = range(3)
 WAIT_EDIT_WELCOME, WAIT_EDIT_SYSTEMPROMPT, WAIT_EDIT_KNOWLEDGE = range(3, 6)
-WAIT_EDIT_BRAND, WAIT_EDIT_OWNERPHONE = range(6, 8)
+WAIT_EDIT_BRAND, WAIT_EDIT_OWNERPHONE, WAIT_EDIT_WORKTIME = range(6, 9)
 
 KNOWLEDGE_EXAMPLE = (
     "# JAM OPERASIONAL\n"
@@ -118,6 +118,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "/brand - Edit nama brand\n"
             "/knowledge - Edit knowledge\n"
             "/ownerphone - Edit nomor owner\n"
+            "/worktime - Edit jam kerja\n"
             "/welcome - Edit pesan welcome\n"
             "/systemprompt - Edit system prompt\n"
             "/qr - Login WhatsApp via QR code\n"
@@ -517,6 +518,7 @@ async def ownerphone_edit_callback(update: Update, context: ContextTypes.DEFAULT
     return WAIT_EDIT_OWNERPHONE
 
 async def received_ownerphone_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Terima nomor owner baru dari edit mode"""
     if not is_admin(update):
         return ConversationHandler.END
     
@@ -525,24 +527,138 @@ async def received_ownerphone_edit(update: Update, context: ContextTypes.DEFAULT
         await update.callback_query.edit_message_text("Dibatalkan.")
         return ConversationHandler.END
     
-    new_phone = update.message.text.strip()
-    if not new_phone.startswith("62") or not new_phone.isdigit():
+    owner_phone = update.message.text.strip()
+    if not owner_phone.startswith("62") or not owner_phone.isdigit():
         await update.message.reply_text(
-            "Format nomor tidak valid. Harus dimulai dengan 62 dan hanya angka.\n"
-            "Contoh: 6281234567890\n\n"
-            "Coba lagi.",
+            "⚠️ Format nomor tidak valid. Harus diawali 62 dan hanya angka.\n"
+            "Contoh: 6281234567890\n\nCoba lagi:",
             reply_markup=_cancel_keyboard()
         )
         return WAIT_EDIT_OWNERPHONE
     
     cfg = load_config()
-    cfg["owner_phone"] = new_phone
+    cfg["owner_phone"] = owner_phone
     save_config(cfg)
     
     await update.message.reply_text(
-        f"✅ Nomor owner berhasil diperbarui menjadi: {new_phone}"
+        f"✅ Nomor owner berhasil diperbarui: {owner_phone}"
     )
     return ConversationHandler.END
+
+async def cmd_worktime(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Command untuk melihat dan mengedit jam kerja"""
+    if not is_admin(update):
+        return
+    cfg = load_config()
+    work_time = cfg.get("work_time", {"enabled": False, "open": "08:00", "close": "17:00", "timezone": "Asia/Jakarta"})
+    
+    enabled_status = "🟢 Aktif" if work_time.get("enabled", False) else "🔴 Tidak Aktif"
+    open_time = work_time.get("open", "08:00")
+    close_time = work_time.get("close", "17:00")
+    timezone = work_time.get("timezone", "Asia/Jakarta")
+    
+    msg = (
+        f"*Pengaturan Jam Kerja*\n\n"
+        f"Status: {enabled_status}\n"
+        f"Jam Buka: {open_time}\n"
+        f"Jam Tutup: {close_time}\n"
+        f"Timezone: {timezone}\n\n"
+        f"Jika aktif, bot hanya akan membalas pesan di luar jam kerja dengan informasi bahwa pesan akan dibalas besok.\n"
+    )
+    
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✏️ Edit Jam Kerja", callback_data="edit_worktime")]
+    ])
+    
+    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=keyboard)
+
+async def worktime_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle klik tombol Edit Jam Kerja"""
+    if not is_admin(update):
+        return ConversationHandler.END
+    
+    query = update.callback_query
+    await query.answer()
+    
+    cfg = load_config()
+    work_time = cfg.get("work_time", {"enabled": False, "open": "08:00", "close": "17:00", "timezone": "Asia/Jakarta"})
+    
+    await query.edit_message_text(
+        f"*Edit Jam Kerja*\n\n"
+        f"Kirim dalam format:\n"
+        f"`enabled:open:close:timezone`\n\n"
+        f"Contoh:\n"
+        f"`true:08:00:17:00:Asia/Jakarta` (aktif)\n"
+        f"`false:08:00:17:00:Asia/Jakarta` (tidak aktif)\n\n"
+        f"Nilai saat ini:\n"
+        f"`{work_time.get('enabled', False)}:{work_time.get('open', '08:00')}:{work_time.get('close', '17:00')}:{work_time.get('timezone', 'Asia/Jakarta')}`\n\n"
+        f"Tekan tombol Cancel untuk membatalkan.",
+        parse_mode="Markdown",
+        reply_markup=_cancel_keyboard()
+    )
+    return WAIT_EDIT_WORKTIME
+
+async def received_worktime(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Terima pengaturan jam kerja baru dari edit mode"""
+    if not is_admin(update):
+        return ConversationHandler.END
+    
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text("Dibatalkan.")
+        return ConversationHandler.END
+    
+    worktime_text = update.message.text.strip()
+    
+    # Parse format: enabled:open:close:timezone
+    try:
+        parts = worktime_text.split(":")
+        if len(parts) != 4:
+            raise ValueError("Format tidak valid")
+        
+        enabled_str = parts[0].lower()
+        if enabled_str not in ["true", "false"]:
+            raise ValueError("Enabled harus 'true' atau 'false'")
+        
+        enabled = enabled_str == "true"
+        open_time = parts[1]
+        close_time = parts[2]
+        timezone = parts[3]
+        
+        # Validasi format waktu
+        import re
+        if not re.match(r"^\d{2}:\d{2}$", open_time) or not re.match(r"^\d{2}:\d{2}$", close_time):
+            raise ValueError("Format waktu harus HH:MM")
+        
+        cfg = load_config()
+        cfg["work_time"] = {
+            "enabled": enabled,
+            "open": open_time,
+            "close": close_time,
+            "timezone": timezone
+        }
+        save_config(cfg)
+        
+        enabled_status = "🟢 Aktif" if enabled else "🔴 Tidak Aktif"
+        await update.message.reply_text(
+            f"✅ Jam kerja berhasil diperbarui!\n\n"
+            f"Status: {enabled_status}\n"
+            f"Jam Buka: {open_time}\n"
+            f"Jam Tutup: {close_time}\n"
+            f"Timezone: {timezone}"
+        )
+        return ConversationHandler.END
+        
+    except Exception as e:
+        await update.message.reply_text(
+            f"⚠️ Format tidak valid: {str(e)}\n\n"
+            f"Gunakan format: `enabled:open:close:timezone`\n"
+            f"Contoh: `true:08:00:17:00:Asia/Jakarta`\n\n"
+            f"Coba lagi:",
+            parse_mode="Markdown",
+            reply_markup=_cancel_keyboard()
+        )
+        return WAIT_EDIT_WORKTIME
 
 async def cmd_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
@@ -879,6 +995,7 @@ async def _set_bot_commands(app):
         BotCommand("brand",        "Edit nama brand"),
         BotCommand("knowledge",    "Edit knowledge"),
         BotCommand("ownerphone",   "Edit nomor owner"),
+        BotCommand("worktime",     "Edit jam kerja"),
         BotCommand("welcome",      "Edit pesan welcome"),
         BotCommand("systemprompt", "Edit system prompt"),
         BotCommand("qr",           "Login WhatsApp via QR code"),
@@ -987,12 +1104,27 @@ def build_telegram_app():
         fallbacks=[CommandHandler("cancel", cancel_edit)],
     )
 
+    worktime_conv = ConversationHandler(
+        entry_points=[
+            CommandHandler("worktime", cmd_worktime),
+            CallbackQueryHandler(worktime_edit_callback, pattern="^edit_worktime$"),
+        ],
+        states={
+            WAIT_EDIT_WORKTIME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, received_worktime),
+                CallbackQueryHandler(cancel_edit, pattern="^edit_cancel$"),
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_edit)],
+    )
+
     app.add_handler(setup_conv)
     app.add_handler(welcome_conv)
     app.add_handler(systemprompt_conv)
     app.add_handler(knowledge_conv)
     app.add_handler(brand_conv)
     app.add_handler(ownerphone_conv)
+    app.add_handler(worktime_conv)
     app.add_handler(CommandHandler("start",   cmd_start))
     app.add_handler(CommandHandler("config",  cmd_config))
     app.add_handler(CommandHandler("qr",      cmd_qr))
