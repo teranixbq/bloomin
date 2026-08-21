@@ -779,11 +779,11 @@ async def cmd_newlogin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         # Buat device baru di GOWA
         async with httpx.AsyncClient(auth=gowa_auth()) as client:
-            resp = await client.post(f"{GOWA_BASE_URL}/devices", timeout=10)
+            resp = await client.post(f"{GOWA_BASE_URL}/devices", json={"name": "new-device"}, timeout=10)
             resp.raise_for_status()
             data = resp.json()
             
-        device_id = data.get("device_id")
+        device_id = data.get("results", {}).get("id")
         if not device_id:
             await update.message.reply_text("❌ Gagal membuat device baru")
             return
