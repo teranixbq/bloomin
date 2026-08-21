@@ -328,10 +328,27 @@ async def cmd_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     cfg = load_config()
     welcome_msg = cfg.get("welcome_msg", "")
+    
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✏️ Edit Pesan Sambutan", callback_data="edit_welcome")]
+    ])
+    
     await update.message.reply_text(
-        f"Pesan sambutan saat ini:\n\n{welcome_msg}\n\n"
-        "Kirim pesan baru untuk mengubah.",
-        reply_markup=_cancel_keyboard(),
+        f"Pesan sambutan saat ini:\n\n{welcome_msg}",
+        reply_markup=keyboard
+    )
+
+async def welcome_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return ConversationHandler.END
+    
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        "Kirim pesan sambutan baru untuk mengubah.\n\n"
+        "Ketik /cancel untuk membatalkan.",
+        reply_markup=_cancel_keyboard()
     )
     return WAIT_EDIT_WELCOME
 
@@ -357,17 +374,35 @@ async def cmd_systemprompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cfg = load_config()
     system_prompt = cfg.get("system_prompt", "")
     msg = f"System prompt LLM saat ini:\n\n{system_prompt}"
+    
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✏️ Edit System Prompt", callback_data="edit_systemprompt")]
+    ])
+    
     if len(msg) > 4000:
         await update.message.reply_text(msg[:4000])
         await update.message.reply_text(
-            msg[4000:] + "\n\nKirim system prompt baru untuk mengubah.",
-            reply_markup=_cancel_keyboard(),
+            msg[4000:],
+            reply_markup=keyboard
         )
     else:
         await update.message.reply_text(
-            msg + "\n\nKirim system prompt baru untuk mengubah.",
-            reply_markup=_cancel_keyboard(),
+            msg,
+            reply_markup=keyboard
         )
+
+async def systemprompt_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return ConversationHandler.END
+    
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        "Kirim system prompt baru untuk mengubah.\n\n"
+        "Ketik /cancel untuk membatalkan.",
+        reply_markup=_cancel_keyboard()
+    )
     return WAIT_EDIT_SYSTEMPROMPT
 
 async def received_system_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -738,7 +773,10 @@ def build_telegram_app():
     )
 
     welcome_conv = ConversationHandler(
-        entry_points=[CommandHandler("welcome", cmd_welcome)],
+        entry_points=[
+            CommandHandler("welcome", cmd_welcome),
+            CallbackQueryHandler(welcome_edit_callback, pattern="^edit_welcome$")
+        ],
         states={
             WAIT_EDIT_WELCOME: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, received_welcome_msg),
@@ -749,7 +787,10 @@ def build_telegram_app():
     )
 
     systemprompt_conv = ConversationHandler(
-        entry_points=[CommandHandler("systemprompt", cmd_systemprompt)],
+        entry_points=[
+            CommandHandler("systemprompt", cmd_systemprompt),
+            CallbackQueryHandler(systemprompt_edit_callback, pattern="^edit_systemprompt$")
+        ],
         states={
             WAIT_EDIT_SYSTEMPROMPT: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, received_system_prompt),
