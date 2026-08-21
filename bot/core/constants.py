@@ -35,9 +35,8 @@ MSG_OWNER_WAITING = (
 )
 
 MSG_OWNER_TIMEOUT = (
-    "Maaf kak, penjual kami sedang tidak bisa dihubungi saat ini 🙏\n"
-    "Silakan coba lagi nanti atau hubungi kami di lain waktu ya.\n\n"
-    "Terima kasih sudah menghubungi kami 🌸 Sampai jumpa!"
+    "Mohon maaf, admin sedang tidak bisa dihubungi saat ini 🙏\n"
+    "Silakan hubungi kami lagi beberapa saat lagi ya."
 )
 
 MSG_BOT_REJECT = (
