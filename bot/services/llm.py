@@ -15,8 +15,6 @@ def _get_system_prompt(knowledge: str) -> str:
     filled = template.replace("{brand_name}", brand_name)
     if "{knowledge}" in filled:
         return filled.format(knowledge=knowledge)
-    if "{corpus}" in filled:  # template lama yang belum diupdate
-        return filled.format(corpus=knowledge)
     return filled + f"\n\n{knowledge}"
 
 async def ask_llm(knowledge: str, query: str, history: list[dict] | None = None) -> str | None:
