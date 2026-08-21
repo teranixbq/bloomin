@@ -41,6 +41,9 @@ def get_owner_phone() -> str:
 def get_welcome_msg() -> str:
     return load_config().get("welcome_msg", MSG_WELCOME_DEFAULT)
 
+# Track nomor yang sudah dikasih info di luar jam kerja
+_notified_outside_hours = set()
+
 def _set_knowledge(text: str):
     global _knowledge
     _knowledge = text
@@ -86,9 +89,14 @@ def get_work_time_info() -> str:
 async def _handle_message(sender_phone: str, message: str):
     sessions = get_sessions()
 
-    # Check jam kerja - jika di luar jam kerja, balas dengan info dan jangan proses lebih lanjut
+    # Check jam kerja - hanya balas pesan pertama di luar jam kerja
     if not is_within_work_time():
-        await send_message(sender_phone, get_work_time_info())
+        if sender_phone not in _notified_outside_hours:
+            _notified_outside_hours.add(sender_phone)
+            print(f"[worktime] {sender_phone} di luar jam kerja, kirim info")
+            await send_message(sender_phone, get_work_time_info())
+        else:
+            print(f"[worktime] {sender_phone} sudah dikasih info, skip")
         return
 
     if sender_phone in _processing:
