@@ -839,10 +839,12 @@ async def cmd_newlogin(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 async with httpx.AsyncClient(auth=gowa_auth()) as client:
                     status_resp = await client.get(f"{GOWA_BASE_URL}/devices/{device_id}/status", timeout=10)
                     status_data = status_resp.json()
-                    
-                status = status_data.get("status")
+                    results = status_data.get("results", {})
                 
-                if status == "connected":
+                is_connected = results.get("is_connected", False)
+                is_logged_in = results.get("is_logged_in", False)
+                
+                if is_connected and is_logged_in:
                     # Delete QR message
                     try:
                         await qr_message.delete()
