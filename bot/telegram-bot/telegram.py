@@ -886,7 +886,7 @@ async def cmd_listdevice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             resp.raise_for_status()
             data = resp.json()
             
-        devices = data.get("devices", [])
+        devices = data.get("results", [])
         
         if not devices:
             await update.message.reply_text("📱 Tidak ada device terdaftar")
@@ -900,13 +900,13 @@ async def cmd_listdevice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         for idx, device in enumerate(devices, 1):
             device_id = device.get("id")
-            status = device.get("status", "unknown")
+            state = device.get("state", "unknown")
             
-            # Status emoji
-            status_emoji = "🟢" if status == "connected" else "🔴"
+            # State emoji
+            state_emoji = "🟢" if state == "logged_in" else "🔴"
             active_emoji = "⭐ " if device_id == active_device else ""
             
-            message += f"{idx}. {active_emoji}{status_emoji} `{device_id[:8]}...`\n"
+            message += f"{idx}. {active_emoji}{state_emoji} `{device_id[:8]}...`\n"
             
             # Tombol delete (tidak bisa delete active device)
             if device_id != active_device:
@@ -965,12 +965,12 @@ async def cmd_switchdevice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             resp.raise_for_status()
             data = resp.json()
             
-        devices = data.get("devices", [])
+        devices = data.get("results", [])
         cfg = load_config()
         active_device = cfg.get("device_id")
         
-        # Filter hanya device yang connected
-        connected_devices = [d for d in devices if d.get("status") == "connected"]
+        # Filter hanya device yang logged_in
+        connected_devices = [d for d in devices if d.get("state") == "logged_in"]
         
         if len(connected_devices) <= 1:
             await update.message.reply_text(
