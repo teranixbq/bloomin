@@ -37,12 +37,21 @@ WAIT_EDIT_WELCOME, WAIT_EDIT_SYSTEMPROMPT, WAIT_EDIT_KNOWLEDGE = range(3, 6)
 KNOWLEDGE_EXAMPLE = (
     "# JAM OPERASIONAL\n"
     "----------\n"
-    "Bloomin' Tasikmalaya buka setiap hari pukul 08.00 - 17.00 WIB.\n"
-    "Untuk pemesanan di luar jam operasional, silakan hubungi kami via whatsapp /admin.\n\n"
+    "Senin - Jumat: 09.00 - 18.00\n"
+    "Sabtu: 09.00 - 15.00\n"
+    "Minggu & Hari Libur: Tutup\n\n"
     "# ALAMAT\n"
     "---------\n"
-    "Jln. Situ Gede, Linggajaya (Dekat Pasar Cikurubuk)\n"
-    "https://goo.gl/maps/5M34pRoaFeHwBX156?g-st=atm"
+    "Jl. Contoh No. 123, Kota ABC\n\n"
+    "# PRODUK / LAYANAN\n"
+    "---------\n"
+    "1. Produk A - Rp 50.000\n"
+    "2. Produk B - Rp 75.000\n\n"
+    "# KONTAK\n"
+    "---------\n"
+    "WhatsApp: 0812-3456-7890\n"
+    "Instagram: @tokosaya\n"
+    "Email: info@tokosaya.com"
 )
 
 def is_admin(update: Update) -> bool:
