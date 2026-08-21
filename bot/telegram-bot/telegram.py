@@ -550,27 +550,66 @@ async def cmd_worktime(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         return
     cfg = load_config()
-    work_time = cfg.get("work_time", {"enabled": False, "open": "08:00", "close": "17:00", "timezone": "Asia/Jakarta"})
+    work_time = cfg.get("work_time", {"enabled": False, "open": "08:00", "close": "17:00"})
     
     enabled_status = "🟢 Aktif" if work_time.get("enabled", False) else "🔴 Tidak Aktif"
     open_time = work_time.get("open", "08:00")
     close_time = work_time.get("close", "17:00")
-    timezone = work_time.get("timezone", "Asia/Jakarta")
     
     msg = (
         f"*Pengaturan Jam Kerja*\n\n"
         f"Status: {enabled_status}\n"
         f"Jam Buka: {open_time}\n"
         f"Jam Tutup: {close_time}\n"
-        f"Timezone: {timezone}\n\n"
+        f"Timezone: Asia/Jakarta (WIB)\n\n"
         f"Jika aktif, bot hanya akan membalas pesan di luar jam kerja dengan informasi bahwa pesan akan dibalas besok.\n"
     )
     
+    toggle_text = "🔴 Matikan" if work_time.get("enabled", False) else "🟢 Aktifkan"
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("✏️ Edit Jam Kerja", callback_data="edit_worktime")]
+        [InlineKeyboardButton(toggle_text, callback_data="toggle_worktime")],
+        [InlineKeyboardButton("✏️ Edit Jam", callback_data="edit_worktime")]
     ])
     
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=keyboard)
+
+async def worktime_toggle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle klik tombol toggle worktime"""
+    if not is_admin(update):
+        return ConversationHandler.END
+    
+    query = update.callback_query
+    await query.answer()
+    
+    cfg = load_config()
+    work_time = cfg.get("work_time", {"enabled": False, "open": "08:00", "close": "17:00"})
+    
+    # Toggle
+    new_enabled = not work_time.get("enabled", False)
+    work_time["enabled"] = new_enabled
+    cfg["work_time"] = work_time
+    save_config(cfg)
+    
+    enabled_status = "🟢 Aktif" if new_enabled else "🔴 Tidak Aktif"
+    
+    # Refresh tampilan
+    toggle_text = "🔴 Matikan" if new_enabled else "🟢 Aktifkan"
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(toggle_text, callback_data="toggle_worktime")],
+        [InlineKeyboardButton("✏️ Edit Jam", callback_data="edit_worktime")]
+    ])
+    
+    msg = (
+        f"*Pengaturan Jam Kerja*\n\n"
+        f"Status: {enabled_status}\n"
+        f"Jam Buka: {work_time.get('open', '08:00')}\n"
+        f"Jam Tutup: {work_time.get('close', '17:00')}\n"
+        f"Timezone: Asia/Jakarta (WIB)\n\n"
+        f"Jika aktif, bot hanya akan membalas pesan di luar jam kerja dengan informasi bahwa pesan akan dibalas besok.\n"
+    )
+    
+    await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=keyboard)
+    return ConversationHandler.END
 
 async def worktime_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle klik tombol Edit Jam Kerja"""
@@ -581,17 +620,15 @@ async def worktime_edit_callback(update: Update, context: ContextTypes.DEFAULT_T
     await query.answer()
     
     cfg = load_config()
-    work_time = cfg.get("work_time", {"enabled": False, "open": "08:00", "close": "17:00", "timezone": "Asia/Jakarta"})
+    work_time = cfg.get("work_time", {"enabled": False, "open": "08:00", "close": "17:00"})
     
     await query.edit_message_text(
         f"*Edit Jam Kerja*\n\n"
-        f"Kirim dalam format:\n"
-        f"`enabled:open:close:timezone`\n\n"
+        f"Kirim format: `jam_buka,jam_tutup`\n\n"
         f"Contoh:\n"
-        f"`true:08:00:17:00:Asia/Jakarta` (aktif)\n"
-        f"`false:08:00:17:00:Asia/Jakarta` (tidak aktif)\n\n"
+        f"`08:00,17:00`\n\n"
         f"Nilai saat ini:\n"
-        f"`{work_time.get('enabled', False)}:{work_time.get('open', '08:00')}:{work_time.get('close', '17:00')}:{work_time.get('timezone', 'Asia/Jakarta')}`\n\n"
+        f"`{work_time.get('open', '08:00')},{work_time.get('close', '17:00')}`\n\n"
         f"Tekan tombol Cancel untuk membatalkan.",
         parse_mode="Markdown",
         reply_markup=_cancel_keyboard()
@@ -610,20 +647,14 @@ async def received_worktime(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     worktime_text = update.message.text.strip()
     
-    # Parse format: enabled:open:close:timezone
+    # Parse format: open,close
     try:
-        parts = worktime_text.split(":")
-        if len(parts) != 4:
-            raise ValueError("Format tidak valid")
+        parts = worktime_text.split(",")
+        if len(parts) != 2:
+            raise ValueError("Format harus: jam_buka,jam_tutup")
         
-        enabled_str = parts[0].lower()
-        if enabled_str not in ["true", "false"]:
-            raise ValueError("Enabled harus 'true' atau 'false'")
-        
-        enabled = enabled_str == "true"
-        open_time = parts[1]
-        close_time = parts[2]
-        timezone = parts[3]
+        open_time = parts[0].strip()
+        close_time = parts[1].strip()
         
         # Validasi format waktu
         import re
@@ -631,33 +662,31 @@ async def received_worktime(update: Update, context: ContextTypes.DEFAULT_TYPE):
             raise ValueError("Format waktu harus HH:MM")
         
         cfg = load_config()
-        cfg["work_time"] = {
-            "enabled": enabled,
-            "open": open_time,
-            "close": close_time,
-            "timezone": timezone
-        }
+        work_time = cfg.get("work_time", {"enabled": False})
+        work_time["open"] = open_time
+        work_time["close"] = close_time
+        cfg["work_time"] = work_time
         save_config(cfg)
         
-        enabled_status = "🟢 Aktif" if enabled else "🔴 Tidak Aktif"
+        enabled_status = "🟢 Aktif" if work_time.get("enabled", False) else "🔴 Tidak Aktif"
         await update.message.reply_text(
             f"✅ Jam kerja berhasil diperbarui!\n\n"
             f"Status: {enabled_status}\n"
             f"Jam Buka: {open_time}\n"
-            f"Jam Tutup: {close_time}\n"
-            f"Timezone: {timezone}"
+            f"Jam Tutup: {close_time}"
         )
         return ConversationHandler.END
         
     except Exception as e:
         await update.message.reply_text(
             f"⚠️ Format tidak valid: {str(e)}\n\n"
-            f"Gunakan format: `enabled:open:close:timezone`\n"
-            f"Contoh: `true:08:00:17:00:Asia/Jakarta`\n\n"
+            f"Gunakan format: `jam_buka,jam_tutup`\n"
+            f"Contoh: `08:00,17:00`\n\n"
             f"Coba lagi:",
             parse_mode="Markdown",
             reply_markup=_cancel_keyboard()
         )
+        return WAIT_EDIT_WORKTIME
         return WAIT_EDIT_WORKTIME
 
 async def cmd_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1108,6 +1137,7 @@ def build_telegram_app():
         entry_points=[
             CommandHandler("worktime", cmd_worktime),
             CallbackQueryHandler(worktime_edit_callback, pattern="^edit_worktime$"),
+            CallbackQueryHandler(worktime_toggle_callback, pattern="^toggle_worktime$"),
         ],
         states={
             WAIT_EDIT_WORKTIME: [
