@@ -70,7 +70,7 @@ Lalu di Telegram:
 | Variable | Wajib | Deskripsi |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | ✅ | Token bot dari @BotFather |
-| `TELEGRAM_ADMIN_USER_ID` | ✅ | User ID admin (satu-satunya yg boleh akses menu) |
+| `TELEGRAM_ADMIN_USER_ID` | ✅ | User ID admin, boleh lebih dari satu dipisah koma (mis. `123456,789012`) |
 | `GOWA_PUBLIC_URL` | ✅ | `http://IP_VPS:3000` |
 | `LLM_API_KEY` | ✅ | API key DeepSeek |
 | `GOWA_BASIC_AUTH` | ❌ | Auth GOWA, default `admin:bloomin2024` |

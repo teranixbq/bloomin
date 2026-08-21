@@ -14,7 +14,11 @@ from telegram.ext import (
 from core.config import load_config, save_config
 
 TELEGRAM_BOT_TOKEN     = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_ADMIN_USER_ID = int(os.getenv("TELEGRAM_ADMIN_USER_ID", "0"))
+TELEGRAM_ADMIN_IDS     = {
+    int(x.strip())
+    for x in os.getenv("TELEGRAM_ADMIN_USER_ID", "0").split(",")
+    if x.strip()
+}
 GOWA_BASE_URL          = os.getenv("GOWA_BASE_URL", "http://gowa:3000")
 
 GOWA_PUBLIC_URL = os.getenv("GOWA_PUBLIC_URL", "")
@@ -31,7 +35,7 @@ WAIT_CORPUS_URL, WAIT_OWNER_PHONE, WAIT_BRAND_NAME = range(3)
 WAIT_EDIT_WELCOME, WAIT_EDIT_SYSTEMPROMPT = range(3, 5)
 
 def is_admin(update: Update) -> bool:
-    return update.effective_user.id == TELEGRAM_ADMIN_USER_ID
+    return update.effective_user.id in TELEGRAM_ADMIN_IDS
 
 def get_device_id() -> str:
     """Ambil device_id dari config.json."""

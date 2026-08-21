@@ -25,7 +25,7 @@ Isi minimal yang WAJIB:
 
 ```ini
 TELEGRAM_BOT_TOKEN=123456789:ABCdef...        # dari BotFather
-TELEGRAM_ADMIN_USER_ID=1000715121             # dari @userinfobot
+TELEGRAM_ADMIN_USER_ID=1000715121             # dari @userinfobot (multi-admin: pisah koma, mis. 111,222)
 GOWA_PUBLIC_URL=http://YOUR_VPS_IP:3000       # IP publik VPS
 GOWA_BASIC_AUTH=admin:bloomin2024
 LLM_API_KEY=sk-xxxx                           # API key LLM (DeepSeek)
@@ -38,7 +38,7 @@ cd ~/bloomin
 podman-compose restart bot
 ```
 
-> **Catatan keamanan**: `TELEGRAM_ADMIN_USER_ID` menentukan siapa yang BISA akses semua perintah admin. Jangan diisi sembarangan.
+> **Catatan keamanan**: `TELEGRAM_ADMIN_USER_ID` menentukan siapa yang BISA akses semua perintah admin. Jangan diisi sembarangan. Bisa diisi lebih dari satu ID, pisahkan dengan koma.
 
 ## Bagian 3 — Setup Bot via Telegram
 

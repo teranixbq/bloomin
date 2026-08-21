@@ -151,16 +151,22 @@ async def lifespan(app: FastAPI):
         cfg = load_config()
         _corpus = load_corpus(cfg["corpus_url"])
     else:
-        try:
-            await tg_app.bot.send_message(
-                chat_id=int(os.getenv("TELEGRAM_ADMIN_USER_ID", "0")),
-                text=(
-                    "Bot baru saja restart dan konfigurasi tidak ditemukan.\n\n"
-                    "Ketik /setup untuk melakukan konfigurasi ulang."
+        admin_ids = [
+            int(x.strip())
+            for x in os.getenv("TELEGRAM_ADMIN_USER_ID", "0").split(",")
+            if x.strip()
+        ]
+        for admin_id in admin_ids:
+            try:
+                await tg_app.bot.send_message(
+                    chat_id=admin_id,
+                    text=(
+                        "Bot baru saja restart dan konfigurasi tidak ditemukan.\n\n"
+                        "Ketik /setup untuk melakukan konfigurasi ulang."
+                    )
                 )
-            )
-        except Exception as e:
-            print(f"[telegram] Gagal kirim notifikasi reset: {e}")
+            except Exception as e:
+                print(f"[telegram] Gagal kirim notifikasi reset ke {admin_id}: {e}")
 
     yield
 
