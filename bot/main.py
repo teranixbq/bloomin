@@ -285,15 +285,8 @@ async def webhook(req: Request):
                 f"Saya akan alihkan ke admin."
             )
             
-            # Create session dan set waiting_owner
-            sessions = get_sessions()
-            if sender_phone not in sessions:
-                start_session(sender_phone)
-            session = sessions[sender_phone]
-            cancel_timer(sender_phone)
-            session["waiting_owner"] = True
-            session["owner_connected"] = False
-            session["timer"] = asyncio.create_task(_owner_session_timer(sender_phone))
+            # Start owner session (pakai helper dari session.py)
+            start_owner_session(sender_phone)
             
             # Notify WhatsApp admin
             await notify_owner(
