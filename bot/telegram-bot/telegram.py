@@ -766,6 +766,266 @@ async def received_knowledge_edit(update: Update, context: ContextTypes.DEFAULT_
     
     return ConversationHandler.END
 
+async def cmd_newlogin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Buat device baru dan langsung show QR untuk login"""
+    if not is_admin(update):
+        return
+    
+    await update.message.reply_text("Membuat device baru...")
+    
+    try:
+        # Buat device baru di GOWA
+        async with httpx.AsyncClient(auth=gowa_auth()) as client:
+            resp = await client.post(f"{GOWA_BASE_URL}/devices", timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            
+        device_id = data.get("device_id")
+        if not device_id:
+            await update.message.reply_text("❌ Gagal membuat device baru")
+            return
+            
+        await update.message.reply_text(
+            f"✅ Device baru dibuat!\n"
+            f"Device ID: {device_id}\n\n"
+            "Mengambil QR code untuk login..."
+        )
+        
+        # Ambil QR code
+        async with httpx.AsyncClient(auth=gowa_auth()) as client:
+            qr_resp = await client.get(f"{GOWA_BASE_URL}/devices/{device_id}/qr", timeout=15)
+            qr_resp.raise_for_status()
+            qr_data = qr_resp.json()
+            
+        qr_code = qr_data.get("qr")
+        if not qr_code:
+            await update.message.reply_text("❌ Gagal mengambil QR code")
+            return
+            
+        # Kirim QR code sebagai foto
+        qr_message = await update.message.reply_photo(
+            photo=qr_code,
+            caption=(
+                f"📱 Scan QR ini dengan WhatsApp:\n\n"
+                f"1. Buka WhatsApp\n"
+                f"2. Tap ⋮ (menu) > Linked Devices\n"
+                f"3. Tap 'Link a Device'\n"
+                f"4. Scan QR di atas\n\n"
+                f"⏱️ QR berlaku 60 detik\n"
+                f"Device ID: `{device_id}`"
+            ),
+            parse_mode="Markdown"
+        )
+        
+        # Poll status sampai connected atau timeout
+        start_time = asyncio.get_event_loop().time()
+        timeout = 60
+        poll_interval = 2
+        
+        while asyncio.get_event_loop().time() - start_time < timeout:
+            await asyncio.sleep(poll_interval)
+            
+            try:
+                async with httpx.AsyncClient(auth=gowa_auth()) as client:
+                    status_resp = await client.get(f"{GOWA_BASE_URL}/devices/{device_id}/status", timeout=10)
+                    status_data = status_resp.json()
+                    
+                status = status_data.get("status")
+                
+                if status == "connected":
+                    # Delete QR message
+                    try:
+                        await qr_message.delete()
+                    except:
+                        pass
+                    
+                    # Update config dengan device baru
+                    cfg = load_config()
+                    old_device = cfg.get("device_id", "Tidak ada")
+                    cfg["device_id"] = device_id
+                    save_config(cfg)
+                    
+                    await update.message.reply_text(
+                        f"✅ WhatsApp berhasil terhubung!\n\n"
+                        f"📱 Device ID: `{device_id}`\n"
+                        f"🔄 Bot sekarang menggunakan device ini\n\n"
+                        f"Device lama (`{old_device}`) masih tersimpan tapi tidak aktif.\n\n"
+                        f"Gunakan /listdevice untuk melihat semua device\n"
+                        f"Gunakan /switchdevice untuk berpindah device",
+                        parse_mode="Markdown"
+                    )
+                    return
+                    
+            except Exception as e:
+                print(f"Error polling status: {e}")
+                continue
+                
+        # Timeout
+        await update.message.reply_text(
+            "⏱️ Timeout! QR code sudah expired.\n\n"
+            f"Device ID `{device_id}` sudah dibuat tapi belum login.\n"
+            f"Gunakan /login untuk login ke device ini.",
+            parse_mode="Markdown"
+        )
+        
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {str(e)}")
+
+
+async def cmd_listdevice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """List semua device dengan tombol delete"""
+    if not is_admin(update):
+        return
+        
+    try:
+        async with httpx.AsyncClient(auth=gowa_auth()) as client:
+            resp = await client.get(f"{GOWA_BASE_URL}/devices", timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            
+        devices = data.get("devices", [])
+        
+        if not devices:
+            await update.message.reply_text("📱 Tidak ada device terdaftar")
+            return
+            
+        cfg = load_config()
+        active_device = cfg.get("device_id")
+        
+        message = "📱 *Daftar Device WhatsApp*\n\n"
+        keyboard = []
+        
+        for idx, device in enumerate(devices, 1):
+            device_id = device.get("id")
+            status = device.get("status", "unknown")
+            
+            # Status emoji
+            status_emoji = "🟢" if status == "connected" else "🔴"
+            active_emoji = "⭐ " if device_id == active_device else ""
+            
+            message += f"{idx}. {active_emoji}{status_emoji} `{device_id[:8]}...`\n"
+            
+            # Tombol delete (tidak bisa delete active device)
+            if device_id != active_device:
+                keyboard.append([InlineKeyboardButton(
+                    f"🗑️ Delete #{idx}",
+                    callback_data=f"delete_device:{device_id}"
+                )])
+                
+        if not keyboard:
+            message += "\nℹ️ Tidak ada device yang bisa dihapus (device aktif tidak bisa dihapus)"
+            
+        reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+        
+        await update.message.reply_text(
+            message,
+            parse_mode="Markdown",
+            reply_markup=reply_markup
+        )
+        
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {str(e)}")
+
+
+async def delete_device_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle delete device button"""
+    query = update.callback_query
+    await query.answer()
+    
+    if not is_admin(update):
+        return
+        
+    device_id = query.data.split(":")[1]
+    
+    try:
+        async with httpx.AsyncClient(auth=gowa_auth()) as client:
+            resp = await client.delete(f"{GOWA_BASE_URL}/devices/{device_id}", timeout=10)
+            resp.raise_for_status()
+            
+        await query.edit_message_text(
+            f"✅ Device `{device_id[:8]}...` berhasil dihapus",
+            parse_mode="Markdown"
+        )
+        
+    except Exception as e:
+        await query.edit_message_text(f"❌ Gagal menghapus device: {str(e)}")
+
+
+async def cmd_switchdevice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Switch ke device lain"""
+    if not is_admin(update):
+        return
+        
+    try:
+        async with httpx.AsyncClient(auth=gowa_auth()) as client:
+            resp = await client.get(f"{GOWA_BASE_URL}/devices", timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            
+        devices = data.get("devices", [])
+        cfg = load_config()
+        active_device = cfg.get("device_id")
+        
+        # Filter hanya device yang connected
+        connected_devices = [d for d in devices if d.get("status") == "connected"]
+        
+        if len(connected_devices) <= 1:
+            await update.message.reply_text(
+                "📱 Hanya ada 1 device yang terhubung (atau tidak ada).\n\n"
+                "Gunakan /newlogin untuk menambah device baru."
+            )
+            return
+            
+        message = "🔄 *Pilih Device untuk Diaktifkan*\n\n"
+        keyboard = []
+        
+        for device in connected_devices:
+            device_id = device.get("id")
+            is_active = "⭐ (AKTIF)" if device_id == active_device else ""
+            
+            keyboard.append([InlineKeyboardButton(
+                f"📱 {device_id[:8]}... {is_active}",
+                callback_data=f"switch_device:{device_id}"
+            )])
+            
+        await update.message.reply_text(
+            message,
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {str(e)}")
+
+
+async def switch_device_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle switch device button"""
+    query = update.callback_query
+    await query.answer()
+    
+    if not is_admin(update):
+        return
+        
+    device_id = query.data.split(":")[1]
+    
+    try:
+        cfg = load_config()
+        cfg["device_id"] = device_id
+        save_config(cfg)
+        
+        await query.edit_message_text(
+            f"✅ Berhasil switch ke device `{device_id[:8]}...`\n\n"
+            f"Bot sekarang menggunakan device ini untuk menerima pesan.",
+            parse_mode="Markdown"
+        )
+        
+    except Exception as e:
+        await query.edit_message_text(f"❌ Error: {str(e)}")
+
+
+# State untuk worktime edit
+WAIT_EDIT_WORKTIME = range(1)
+
 async def cmd_qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         return
@@ -1117,4 +1377,12 @@ def build_telegram_app():
     app.add_handler(CommandHandler("status",  cmd_status))
     app.add_handler(CommandHandler("logout",  cmd_logout))
     app.add_handler(CommandHandler("restart", cmd_restart))
+    
+    # Multi-device handlers
+    app.add_handler(CommandHandler("newlogin", cmd_newlogin))
+    app.add_handler(CommandHandler("listdevice", cmd_listdevice))
+    app.add_handler(CommandHandler("switchdevice", cmd_switchdevice))
+    app.add_handler(CallbackQueryHandler(delete_device_callback, pattern="^delete_device:"))
+    app.add_handler(CallbackQueryHandler(switch_device_callback, pattern="^switch_device:"))
+    
     return app
