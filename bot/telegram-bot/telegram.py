@@ -454,7 +454,8 @@ async def cmd_systemprompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = f"System prompt LLM saat ini:\n\n{system_prompt}"
     
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("✏️ Edit System Prompt", callback_data="edit_systemprompt")]
+        [InlineKeyboardButton("✏️ Edit System Prompt", callback_data="edit_systemprompt")],
+        [InlineKeyboardButton("🔄 Reset to Default", callback_data="reset_systemprompt")]
     ])
     
     if len(msg) > 4000:
@@ -482,6 +483,22 @@ async def systemprompt_edit_callback(update: Update, context: ContextTypes.DEFAU
         reply_markup=_cancel_keyboard()
     )
     return WAIT_EDIT_SYSTEMPROMPT
+
+async def systemprompt_reset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    
+    query = update.callback_query
+    await query.answer()
+    
+    cfg = load_config()
+    cfg["system_prompt"] = DEFAULT_SYSTEM_PROMPT
+    save_config(cfg)
+    
+    await query.edit_message_text(
+        "✅ System prompt berhasil di-reset ke default!\n\n"
+        "Ketik /systemprompt untuk melihat prompt baru."
+    )
 
 async def received_system_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
@@ -1441,7 +1458,8 @@ def build_telegram_app():
     systemprompt_conv = ConversationHandler(
         entry_points=[
             CommandHandler("systemprompt", cmd_systemprompt),
-            CallbackQueryHandler(systemprompt_edit_callback, pattern="^edit_systemprompt$")
+            CallbackQueryHandler(systemprompt_edit_callback, pattern="^edit_systemprompt$"),
+            CallbackQueryHandler(systemprompt_reset_callback, pattern="^reset_systemprompt$"),
         ],
         states={
             WAIT_EDIT_SYSTEMPROMPT: [
