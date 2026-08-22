@@ -124,9 +124,8 @@ async def _handle_message(sender_phone: str, message: str):
     session = sessions.get(sender_phone, {})
 
     if session.get("waiting_owner"):
-        owner_connected(sender_phone)
-        if _is_closing(message):
-            await close_session(sender_phone, send_goodbye=True, msg=MSG_CLOSING)
+        # Skip semua pesan user sampai owner balas
+        print(f"[session] {sender_phone} masih waiting_owner, skip pesan user")
         return
 
     if session.get("waiting_admin_confirm"):
@@ -144,6 +143,11 @@ async def _handle_message(sender_phone: str, message: str):
         return
 
     if _is_closing(message):
+        # Kalau lagi connect owner, abaikan - biarin timer handle
+        if session.get("owner_connected"):
+            print(f"[session] {sender_phone} bilang closing tapi owner_connected, skip")
+            reset_timer(sender_phone)
+            return
         await close_session(sender_phone, send_goodbye=True, msg=MSG_CLOSING)
         return
 
@@ -270,7 +274,12 @@ async def webhook(req: Request):
     print(f"[webhook] sender={sender_phone} message={repr(message)} payload_keys={list(payload.keys())}")
 
     if sender_phone == clean_phone(get_owner_phone()):
-        return {"status": "ignored"}
+        # Owner balas dari HP → panggil owner_connected untuk user yang waiting_owner
+        sessions = get_sessions()
+        chat_phone = clean_phone(chat_id)
+        if sessions.get(chat_phone, {}).get("waiting_owner"):
+            owner_connected(chat_phone)
+        return {"status": "owner_msg"}
 
     # Check media FIRST - always forward to admin regardless of time
     # GOWA kirim media sebagai key langsung di payload (image, video, audio, document, dll)

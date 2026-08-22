@@ -85,9 +85,10 @@ def owner_connected(phone: str):
     session = _sessions.get(phone)
     if session and session.get("waiting_owner"):
         cancel_timer(phone)
+        session["waiting_owner"] = False      # ✅ Reset
         session["owner_connected"] = True
-        session["timer"] = asyncio.create_task(_owner_session_timer(phone))
-        print(f"[session] owner started talking to {phone}")
+        session["timer"] = asyncio.create_task(_inactivity_timer(phone))  # ✅ Ganti timer
+        print(f"[session] owner connected, switch to normal conversation for {phone}")
 
 def start_session(phone: str, outside_hours: bool = False):
     _sessions[phone] = {
