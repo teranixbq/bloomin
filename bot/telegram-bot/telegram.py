@@ -1380,6 +1380,8 @@ async def _set_bot_commands(app):
         BotCommand("config",       "Lihat konfigurasi saat ini"),
         BotCommand("restart",      "Restart koneksi WhatsApp"),
         BotCommand("logout",       "Logout WhatsApp"),
+        BotCommand("offbot",       "Matikan bot WhatsApp"),
+        BotCommand("onbot",        "Aktifkan bot WhatsApp"),
     ])
 
 def build_telegram_app():
