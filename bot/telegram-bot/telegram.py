@@ -188,7 +188,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "/status - Cek status koneksi WhatsApp\n"
             "/config - Lihat konfigurasi saat ini\n"
             "/restart - Restart koneksi WhatsApp\n"
-            "/logout - Logout WhatsApp"
+            "/logout - Logout WhatsApp\n"
+            "/offbot - Matikan bot WhatsApp\n"
+            "/onbot - Nyalakan bot WhatsApp"
         )
 
 def _skip_cancel_keyboard() -> InlineKeyboardMarkup:
