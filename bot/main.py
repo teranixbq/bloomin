@@ -131,6 +131,19 @@ async def _handle_message(sender_phone: str, message: str):
     is_new_session = sender_phone not in sessions
 
     if is_new_session:
+        # Cek apakah yang chat adalah owner
+        from core.config import load_config
+        cfg = load_config()
+        owner_phone = cfg.get("owner_phone", "")
+        
+        if sender_phone == owner_phone:
+            # Owner chat langsung → langsung ke owner session, skip greetings
+            start_session(sender_phone)
+            session = sessions[sender_phone]
+            start_owner_session(sender_phone)
+            print(f"[session] owner chat langsung, skip greetings for {sender_phone}")
+            return
+        
         # Flow baru: Greetings dengan pilihan
         start_session(sender_phone)
         session = sessions[sender_phone]
