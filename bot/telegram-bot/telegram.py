@@ -12,6 +12,7 @@ from telegram.ext import (
     filters,
 )
 from core.config import load_config, save_config
+from core.constants import DEFAULT_SYSTEM_PROMPT
 
 TELEGRAM_BOT_TOKEN     = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_ADMIN_IDS     = {
