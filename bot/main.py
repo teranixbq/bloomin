@@ -266,6 +266,7 @@ app = FastAPI(lifespan=lifespan)
 async def webhook(req: Request):
     # Gap 5: Check if bot is enabled
     if not _bot_enabled:
+        print("[webhook] bot disabled, skipping message")
         return {"status": "bot_disabled"}
     
     data = await req.json()
@@ -408,12 +409,10 @@ async def webhook(req: Request):
         # Create session dan set waiting_owner (sama kayak media forwarding)
         if sender_phone not in sessions:
             start_session(sender_phone)
-        session = sessions[sender_phone]
         cancel_timer(sender_phone)
-        session["waiting_owner"] = True
-        session["owner_connected"] = False
+        start_owner_session(sender_phone)
+        session = sessions[sender_phone]
         session["spam_forwarded"] = True
-        session["timer"] = asyncio.create_task(_owner_session_timer(sender_phone))
         
         # Notify admin
         await notify_owner(

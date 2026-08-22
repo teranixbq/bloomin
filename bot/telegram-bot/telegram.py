@@ -63,6 +63,11 @@ async def cmd_offbot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         return
     
+    is_bot_enabled_fn = context.bot_data.get("is_bot_enabled")
+    if is_bot_enabled_fn and not is_bot_enabled_fn():
+        await update.message.reply_text("⚠️ Bot sudah dimatikan sebelumnya. Gunakan /onbot untuk mengaktifkan kembali.")
+        return
+    
     set_bot_enabled = context.bot_data.get("set_bot_enabled")
     get_sessions = context.bot_data.get("get_sessions")
     cancel_timer = context.bot_data.get("cancel_timer")
@@ -79,7 +84,6 @@ async def cmd_offbot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     closed_count = 0
     
     if sessions:
-        # Copy keys karena kita akan modify dict
         for phone in list(sessions.keys()):
             try:
                 if cancel_timer:
@@ -100,6 +104,11 @@ async def cmd_offbot(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_onbot(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Command untuk mengaktifkan bot WhatsApp"""
     if not is_admin(update):
+        return
+    
+    is_bot_enabled_fn = context.bot_data.get("is_bot_enabled")
+    if is_bot_enabled_fn and is_bot_enabled_fn():
+        await update.message.reply_text("⚠️ Bot sudah aktif sebelumnya.")
         return
     
     set_bot_enabled = context.bot_data.get("set_bot_enabled")

@@ -37,6 +37,13 @@ async def _inactivity_timer(phone: str):
             print(f"[session] outside hours session expired for {phone}")
             return
         
+        # Waiting owner - kirim MSG_OWNER_TIMEOUT (owner gak balas)
+        if session.get("waiting_owner"):
+            await send_message(phone, MSG_OWNER_TIMEOUT)
+            _sessions.pop(phone, None)
+            print(f"[session] waiting_owner timeout, closed for {phone}")
+            return
+        
         # Owner connected session - LANGSUNG close tanpa tanya "masih di sini?"
         if session.get("owner_connected"):
             await send_message(phone, MSG_CLOSING)
