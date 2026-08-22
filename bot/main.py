@@ -117,6 +117,12 @@ async def _handle_message(sender_phone: str, message: str):
         _notified_outside_hours.clear()
         print("[worktime] Jam kerja dimulai, reset outside hours skip set")
 
+    # Cek apakah user sudah di-forward ke owner (spam/media/admin) - skip response
+    session = sessions.get(sender_phone, {})
+    if session.get("spam_forwarded") or session.get("waiting_owner") or session.get("owner_connected"):
+        print(f"[handle] {sender_phone} sudah di-forward/owner session, skip response")
+        return
+
     if sender_phone in _processing:
         print(f"[webhook] skip {sender_phone} — masih diproses")
         return
@@ -354,6 +360,13 @@ async def webhook(req: Request):
             print(f"[webhook] {sender_phone} sent {detected_media}, forwarded to admin")
         
         return {"status": "media_forwarded"}
+
+    # Check waiting_owner ATAU owner_connected: skip semua pesan (PALING ATAS!)
+    sessions = get_sessions()
+    session = sessions.get(sender_phone, {})
+    if session.get("waiting_owner") or session.get("owner_connected"):
+        print(f"[webhook] {sender_phone} sedang waiting_owner/owner_connected, skip pesan")
+        return {"status": "owner_session_skip"}
 
     # Check outside hours (text messages only)
     if not is_within_work_time():
