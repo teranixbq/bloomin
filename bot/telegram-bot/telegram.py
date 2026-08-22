@@ -666,7 +666,7 @@ async def cmd_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_knowledge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
-        return
+        return ConversationHandler.END
     
     knowledge_file = "/app/knowledge.txt"
     
@@ -676,7 +676,7 @@ async def cmd_knowledge(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Knowledge file belum ada.\n\n"
             "Upload file knowledge.txt untuk membuat knowledge base baru."
         )
-        return
+        return WAIT_EDIT_KNOWLEDGE
     
     # Send file directly
     with open(knowledge_file, 'rb') as f:
@@ -688,9 +688,12 @@ async def cmd_knowledge(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Untuk edit:\n"
                 "1. Download file ini\n"
                 "2. Edit di HP/laptop\n"
-                "3. Upload balik file yang sudah diedit (nama harus knowledge.txt)"
+                "3. Upload balik file yang sudah diedit (nama harus knowledge.txt)\n\n"
+                "Ketik /cancel untuk membatalkan."
             )
         )
+    
+    return WAIT_EDIT_KNOWLEDGE
 
 async def knowledge_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle klik tombol Edit Knowledge"""
