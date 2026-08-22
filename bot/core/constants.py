@@ -17,6 +17,25 @@ MSG_WELCOME_DEFAULT = (
     "Ketik /admin kalau ingin langsung bicara dengan admin kami 😊"
 )
 
+# Flow greetings baru dengan pilihan
+MSG_GREETINGS_CHOICE = (
+    "Halo kak! 👋\n\n"
+    "Selamat datang di Bloomin'!\n"
+    "Mau ngobrol sama siapa nih?\n\n"
+    "🤖 Ketik *1* - Tanya ke Bot AI (produk, harga, dll)\n"
+    "👤 Ketik *2* - Langsung ke Admin"
+)
+
+MSG_BOT_SELECTED = (
+    "Oke kak! Silakan tanya apa aja tentang produk kami ya 😊\n"
+    "(misal: harga buket, jenis bunga, cara pesan, dll)"
+)
+
+MSG_PLEASE_CHOOSE = (
+    "Eits, pilih dulu ya kak 😊\n"
+    "Ketik *1* untuk tanya ke bot, atau *2* untuk langsung ke admin"
+)
+
 MSG_STILL_THERE = "Hai kak, masih di sini? 😊 Ada lagi yang bisa kami bantu?"
 
 MSG_CLOSING = (

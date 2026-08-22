@@ -110,6 +110,7 @@ def start_session(phone: str, outside_hours: bool = False):
         "timer": asyncio.create_task(_inactivity_timer(phone)),
         "waiting_confirm": False,
         "waiting_admin_confirm": False,
+        "waiting_choice": False,  # ✅ Baru: menunggu user pilih 1 atau 2
         "waiting_owner": False,
         "owner_connected": False,
         "outside_hours": outside_hours,

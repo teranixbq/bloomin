@@ -17,6 +17,7 @@ from core.constants import (
     MSG_ADMIN_CONFIRM, MSG_ADMIN_CONFIRM_NO, MSG_ADMIN_CONFIRM_UNCLEAR,
     MSG_ACTIVE_SESSION_GREETING, MSG_NOT_READY,
     MSG_OWNER_WAITING, MSG_CLOSING,
+    MSG_GREETINGS_CHOICE, MSG_BOT_SELECTED, MSG_PLEASE_CHOOSE,
     CLOSING_KEYWORDS, ADMIN_KEYWORDS, YES_KEYWORDS, NO_KEYWORDS,
     GREETINGS_REPLY,
 )
@@ -130,8 +131,12 @@ async def _handle_message(sender_phone: str, message: str):
     is_new_session = sender_phone not in sessions
 
     if is_new_session:
+        # Flow baru: Greetings dengan pilihan
         start_session(sender_phone)
-        await send_message(sender_phone, get_welcome_msg())
+        session = sessions[sender_phone]
+        session["waiting_choice"] = True
+        await send_message(sender_phone, MSG_GREETINGS_CHOICE)
+        print(f"[session] greetings choice sent to {sender_phone}")
         return
     else:
         session = sessions.get(sender_phone, {})
@@ -140,6 +145,28 @@ async def _handle_message(sender_phone: str, message: str):
             reset_timer(sender_phone)
 
     session = sessions.get(sender_phone, {})
+
+    # Handle greetings choice (user pilih 1 atau 2)
+    if session.get("waiting_choice"):
+        choice = message.strip()
+        if choice == "1":
+            # User pilih Bot AI
+            session["waiting_choice"] = False
+            await send_message(sender_phone, MSG_BOT_SELECTED)
+            print(f"[session] {sender_phone} chose bot mode")
+            return
+        elif choice == "2":
+            # User pilih langsung admin - notify via WA only
+            session["waiting_choice"] = False
+            await send_message(sender_phone, MSG_OWNER_WAITING)
+            await notify_owner(get_owner_phone(), sender_phone, "Ingin berbicara dengan admin.")
+            start_owner_session(sender_phone)
+            print(f"[session] {sender_phone} chose admin mode, notified via WA")
+            return
+        else:
+            # User balas tidak jelas
+            await send_message(sender_phone, MSG_PLEASE_CHOOSE)
+            return
 
     if session.get("waiting_owner"):
         # Skip semua pesan user sampai owner balas
@@ -276,10 +303,13 @@ async def webhook(req: Request):
         return {"status": "bot_disabled"}
     
     data = await req.json()
-
+    
+    # Log full payload untuk debug multi-device routing
+    print(f"[webhook] FULL PAYLOAD: {data}")
+    
     if data.get("event") != "message":
         return {"status": "ignored"}
-
+    
     payload    = data.get("payload", {})
     is_from_me = payload.get("is_from_me", False)
     chat_id    = payload.get("chat_id", "")

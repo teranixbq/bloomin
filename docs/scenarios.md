@@ -4,73 +4,113 @@ Dokumen ini berisi semua skenario yang sudah diimplementasikan dalam bot, dengan
 
 ---
 
-## 1. NORMAL CONVERSATION (Jam Kerja)
+## 1. GREETINGS & ROUTING (Entry Point)
 
-### Skenario 1.1: User Tanya Produk
+### Skenario 1.1: User Chat Pertama Kali (Greetings)
 **Kondisi:** Jam kerja (08:00-17:00), user pertama kali chat
 
 **Flow:**
 ```
-1. User: "Halo, ada buket mawar merah?"
+1. User: [Kirim pesan pertama - apapun]
    ↓
 2. Bot: Create session baru
-   - waiting_owner = False
+   - greetings_sent = True
+   - waiting_choice = True
+   - Timer inactivity 5 menit dimulai
+   ↓
+3. Bot: "Halo kak! 👋
+         
+         Selamat datang di Bloomin'!
+         Mau ngobrol sama siapa nih?
+         
+         🤖 Ketik 1 - Tanya ke Bot AI (produk, harga, dll)
+         👤 Ketik 2 - Langsung ke Admin"
+   ↓
+4. [Menunggu user pilih 1 atau 2]
+```
+
+### Skenario 1.2: User Pilih "1" (Bot AI)
+**Kondisi:** User balas "1" setelah greetings
+
+**Flow:**
+```
+1. User: "1"
+   - waiting_choice = False
+   - bot_mode = True
+   ↓
+2. Bot: "Oke kak! Silakan tanya apa aja tentang produk kami ya 😊
+         (misal: harga buket, jenis bunga, cara pesan, dll)"
+   ↓
+3. User: "Bloom Box harganya berapa?"
+   ↓
+4. Bot: Call LLM dengan knowledge base
+   ↓
+5. Bot: [Jawab dari knowledge]
+   - Timer reset 5 menit
+```
+
+### Skenario 1.3: User Pilih "2" (Langsung Admin)
+**Kondisi:** User balas "2" setelah greetings
+
+**Flow:**
+```
+1. User: "2"
+   - waiting_choice = False
+   - waiting_owner = True
    - owner_connected = False
-   - Timer inactivity 5 menit dimulai
+   - Timer owner timeout 5 menit dimulai
    ↓
-3. Bot: Call LLM dengan knowledge base
+2. Bot: "Baik kak, saya sambungkan ke admin ya. Mohon tunggu sebentar 🙏"
    ↓
-4. Bot: "Halo kak! 👋 Kami punya buket mawar merah dengan harga Rp 75.000/batang. 
-         Mau pesan berapa kak?"
+3. Bot: Send notif ke admin via Telegram
+   - "🔔 Notifikasi Admin
+    Dari: [Nama User]
+    Nomor: [Nomor User]
+    Pesan: Ingin langsung ke admin."
    ↓
-5. User: "2 batang dong"
-   - Timer reset 5 menit
-   ↓
-6. Bot: Call LLM
-   ↓
-7. Bot: "Siap kak! Total 2 batang mawar merah = Rp 150.000. 
-         Boleh minta nama dan alamat pengirimannya?"
+4. [Menunggu admin balas dari WhatsApp]
 ```
 
-### Skenario 1.2: Session Timeout (User Diam)
-**Kondisi:** User chat, lalu diam 5 menit
+**Setelah ini, flow sama kayak Skenario 3.2 (admin balas) atau 3.3 (admin tidak balas)**
 
-**Flow:**
-```
-1. User: "Mau tanya harga"
-   - Session created
-   - Timer inactivity 5 menit dimulai
-   ↓
-2. Bot: "Silakan kak, ada yang bisa saya bantu?"
-   ↓
-3. [User diam selama 5 menit]
-   ↓
-4. Bot: "Masih di sini kak? 👋"
-   - waiting_confirm = True
-   - Timer close wait 2 menit dimulai
-   ↓
-5. [User diam selama 2 menit lagi]
-   ↓
-6. Bot: "Sepertinya sudah tidak ada di sini ya kak. 
-         Kalau butuh bantuan lagi, silakan chat kami kembali! 🌸"
-   - Session dihapus
-```
-
-### Skenario 1.3: User Balas Setelah Ping
-**Kondisi:** Bot udah ping "Masih di sini?", user balas
+### Skenario 1.4: User Langsung Tanya (Tanpa Pilih)
+**Kondisi:** User kirim pertanyaan langsung tanpa pilih 1 atau 2
 
 **Flow:**
 ```
-1. [Previous conversation...]
+1. User: [Kirim pesan pertama]
    ↓
-2. Bot: "Masih di sini kak? 👋"
-   - waiting_confirm = True
+2. Bot: [Greetings seperti Skenario 1.1]
    ↓
-3. User: "Iya masih dong, tadi bentar cari dompet"
-   - Timer reset 5 menit
-   - waiting_confirm = False
+3. User: "Harga buket mawar berapa?" (bukan "1" atau "2")
    ↓
-4. Bot: "Oke kak, ada yang bisa saya bantu lagi?"
+4. Bot: "Eits, pilih dulu ya kak 😊
+         
+         Ketik 1 untuk tanya ke Bot AI
+         Ketik 2 untuk langsung ke Admin"
+   - waiting_choice tetap True
+   ↓
+5. [Menunggu user pilih 1 atau 2]
+```
+
+### Skenario 1.5: User Reply Tidak Jelas
+**Kondisi:** User balas selain "1" atau "2" saat waiting_choice
+
+**Flow:**
+```
+1. User: [Kirim pesan pertama]
+   ↓
+2. Bot: [Greetings]
+   ↓
+3. User: "halo" / "ya" / "mau tanya" / [apapun selain "1" atau "2"]
+   ↓
+4. Bot: "Maaf kak, pilih 1 atau 2 ya 😊
+         
+         1 = Tanya ke Bot AI
+         2 = Langsung ke Admin"
+   - waiting_choice tetap True
+   ↓
+5. [Menunggu pilihan valid]
 ```
 
 ---
