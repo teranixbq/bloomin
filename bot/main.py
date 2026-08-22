@@ -200,7 +200,15 @@ async def lifespan(app: FastAPI):
 
     if is_setup_done():
         cfg = load_config()
-        _knowledge = cfg.get("knowledge", "")
+        # Load dari file dulu, fallback ke config
+        knowledge_file = "/app/knowledge.txt"
+        if os.path.exists(knowledge_file):
+            with open(knowledge_file, "r") as f:
+                _knowledge = f.read()
+            print(f"[startup] knowledge loaded from {knowledge_file} ({len(_knowledge)} chars)")
+        else:
+            _knowledge = cfg.get("knowledge", "")
+            print(f"[startup] knowledge loaded from config ({len(_knowledge)} chars)")
     else:
         admin_ids = [
             int(x.strip())

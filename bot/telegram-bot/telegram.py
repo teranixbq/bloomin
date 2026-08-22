@@ -667,34 +667,29 @@ async def cmd_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_knowledge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         return
-    cfg = load_config()
-    knowledge_text = cfg.get("knowledge", "")
     
-    if knowledge_text:
-        # Tampilkan isi knowledge dengan tombol Edit
-        msg = f"Knowledge saat ini ({len(knowledge_text)} karakter):\n\n```\n{knowledge_text}\n```"
-        
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✏️ Edit Knowledge", callback_data="edit_knowledge")]
-        ])
-        
-        # Telegram limit 4096 chars
-        if len(msg) > 4000:
-            await update.message.reply_text(
-                msg[:4000] + "\n\n... (terpotong)",
-                parse_mode="Markdown",
-                reply_markup=keyboard
-            )
-        else:
-            await update.message.reply_text(
-                msg,
-                parse_mode="Markdown",
-                reply_markup=keyboard
-            )
-    else:
+    knowledge_file = "/app/knowledge.txt"
+    
+    # Check if file exists
+    if not os.path.exists(knowledge_file):
         await update.message.reply_text(
-            "Knowledge belum diatur.\n\n"
-            "Ketik /setup untuk menambahkan knowledge."
+            "Knowledge file belum ada.\n\n"
+            "Upload file knowledge.txt untuk membuat knowledge base baru."
+        )
+        return
+    
+    # Send file directly
+    with open(knowledge_file, 'rb') as f:
+        await update.message.reply_document(
+            document=f,
+            filename="knowledge.txt",
+            caption=(
+                "📄 Knowledge base saat ini.\n\n"
+                "Untuk edit:\n"
+                "1. Download file ini\n"
+                "2. Edit di HP/laptop\n"
+                "3. Upload balik file yang sudah diedit (nama harus knowledge.txt)"
+            )
         )
 
 async def knowledge_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -715,7 +710,7 @@ async def knowledge_edit_callback(update: Update, context: ContextTypes.DEFAULT_
     return WAIT_EDIT_KNOWLEDGE
 
 async def received_knowledge_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Terima knowledge baru dari edit mode"""
+    """Terima knowledge baru dari edit mode (text atau file)"""
     if not is_admin(update):
         return ConversationHandler.END
     
@@ -725,14 +720,49 @@ async def received_knowledge_edit(update: Update, context: ContextTypes.DEFAULT_
         await update.callback_query.edit_message_text("Dibatalkan.")
         return ConversationHandler.END
     
-    knowledge_text = update.message.text.strip()
-    
-    if len(knowledge_text) < 20:
-        await update.message.reply_text(
-            "⚠️ Knowledge terlalu pendek (minimal 20 karakter). Coba lagi.",
-            reply_markup=_cancel_keyboard()
-        )
-        return WAIT_EDIT_KNOWLEDGE
+    # Handle file upload
+    if update.message.document:
+        doc = update.message.document
+        
+        # Validasi: harus .txt dan nama file "knowledge.txt"
+        if not doc.file_name.endswith('.txt'):
+            await update.message.reply_text(
+                "⚠️ File harus berekstensi .txt\n\n"
+                "Upload ulang dengan file yang benar.",
+                reply_markup=_cancel_keyboard()
+            )
+            return WAIT_EDIT_KNOWLEDGE
+        
+        if doc.file_name != "knowledge.txt":
+            await update.message.reply_text(
+                f"⚠️ Nama file harus 'knowledge.txt', bukan '{doc.file_name}'\n\n"
+                "Rename file lalu upload ulang.",
+                reply_markup=_cancel_keyboard()
+            )
+            return WAIT_EDIT_KNOWLEDGE
+        
+        # Download dan save file
+        file = await doc.get_file()
+        await file.download_to_drive("/app/knowledge.txt")
+        
+        # Baca isi file
+        with open("/app/knowledge.txt", "r") as f:
+            knowledge_text = f.read()
+        
+    # Handle text input (old behavior)
+    else:
+        knowledge_text = update.message.text.strip()
+        
+        if len(knowledge_text) < 20:
+            await update.message.reply_text(
+                "⚠️ Knowledge terlalu pendek (minimal 20 karakter). Coba lagi.",
+                reply_markup=_cancel_keyboard()
+            )
+            return WAIT_EDIT_KNOWLEDGE
+        
+        # Save to file
+        with open("/app/knowledge.txt", "w") as f:
+            f.write(knowledge_text)
     
     cfg = load_config()
     brand_name = cfg.get("brand_name", "Bloomin")
@@ -1353,7 +1383,7 @@ def build_telegram_app():
         ],
         states={
             WAIT_EDIT_KNOWLEDGE: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, received_knowledge_edit),
+                MessageHandler((filters.TEXT & ~filters.COMMAND) | filters.Document.TXT, received_knowledge_edit),
                 CallbackQueryHandler(cancel_edit, pattern="^edit_cancel$"),
             ],
         },

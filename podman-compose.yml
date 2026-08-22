@@ -20,6 +20,7 @@ services:
       - ./bot/.env
     volumes:
       - ./bot/config.json:/app/config.json
+      - ./bot/knowledge.txt:/app/knowledge.txt
     restart: unless-stopped
     depends_on:
       - gowa
