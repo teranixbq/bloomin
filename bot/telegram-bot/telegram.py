@@ -58,6 +58,66 @@ KNOWLEDGE_EXAMPLE = (
 def is_admin(update: Update) -> bool:
     return update.effective_user.id in TELEGRAM_ADMIN_IDS
 
+async def cmd_offbot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Command untuk mematikan bot WhatsApp"""
+    if not is_admin(update):
+        return
+    
+    set_bot_enabled = context.bot_data.get("set_bot_enabled")
+    get_sessions = context.bot_data.get("get_sessions")
+    cancel_timer = context.bot_data.get("cancel_timer")
+    
+    if not set_bot_enabled:
+        await update.message.reply_text("❌ Error: Callback tidak tersedia")
+        return
+    
+    # Matikan bot
+    set_bot_enabled(False)
+    
+    # Close semua session aktif
+    sessions = get_sessions() if get_sessions else {}
+    closed_count = 0
+    
+    if sessions:
+        # Copy keys karena kita akan modify dict
+        for phone in list(sessions.keys()):
+            try:
+                if cancel_timer:
+                    cancel_timer(phone)
+                del sessions[phone]
+                closed_count += 1
+            except Exception as e:
+                print(f"[offbot] Error closing session {phone}: {e}")
+    
+    await update.message.reply_text(
+        f"🔴 Bot berhasil dimatikan!\n\n"
+        f"• Bot tidak akan merespon pesan WhatsApp\n"
+        f"• Media tidak akan di-forward ke admin\n"
+        f"• {closed_count} session aktif telah ditutup\n\n"
+        f"Gunakan /onbot untuk mengaktifkan kembali"
+    )
+
+async def cmd_onbot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Command untuk mengaktifkan bot WhatsApp"""
+    if not is_admin(update):
+        return
+    
+    set_bot_enabled = context.bot_data.get("set_bot_enabled")
+    
+    if not set_bot_enabled:
+        await update.message.reply_text("❌ Error: Callback tidak tersedia")
+        return
+    
+    # Aktifkan bot
+    set_bot_enabled(True)
+    
+    await update.message.reply_text(
+        f"🟢 Bot berhasil diaktifkan!\n\n"
+        f"• Bot akan merespon pesan WhatsApp\n"
+        f"• Media akan di-forward ke admin\n"
+        f"• Semua fitur aktif kembali"
+    )
+
 def get_device_id() -> str:
     """Ambil device_id dari config.json."""
     cfg = load_config()
@@ -1448,6 +1508,8 @@ def build_telegram_app():
     app.add_handler(CommandHandler("status",  cmd_status))
     app.add_handler(CommandHandler("logout",  cmd_logout))
     app.add_handler(CommandHandler("restart", cmd_restart))
+    app.add_handler(CommandHandler("offbot",  cmd_offbot))
+    app.add_handler(CommandHandler("onbot",   cmd_onbot))
     
     # Multi-device handlers
     app.add_handler(CommandHandler("newlogin", cmd_newlogin))

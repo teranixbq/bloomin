@@ -31,6 +31,7 @@ build_telegram_app = telegram_module.build_telegram_app
 
 _knowledge: str | None = None
 _processing: set[str] = set()
+_bot_enabled: bool = True
 
 MAX_HISTORY = 10  # simpan max 10 pasang pesan (user + assistant)
 
@@ -40,6 +41,14 @@ def get_owner_phone() -> str:
 
 def get_welcome_msg() -> str:
     return load_config().get("welcome_msg", MSG_WELCOME_DEFAULT)
+
+def set_bot_enabled(enabled: bool):
+    global _bot_enabled
+    _bot_enabled = enabled
+    print(f"[bot] bot_enabled set to {enabled}")
+
+def is_bot_enabled() -> bool:
+    return _bot_enabled
 
 # Track nomor yang sudah dikasih info di luar jam kerja
 _notified_outside_hours: set[str] = set()
@@ -119,7 +128,10 @@ async def _handle_message(sender_phone: str, message: str):
         await send_message(sender_phone, get_welcome_msg())
         return
     else:
-        reset_timer(sender_phone)
+        session = sessions.get(sender_phone, {})
+        # Kalau owner connected, JANGAN reset timer - pesan user tidak boleh reset timer owner session
+        if not session.get("owner_connected"):
+            reset_timer(sender_phone)
 
     session = sessions.get(sender_phone, {})
 
@@ -144,9 +156,9 @@ async def _handle_message(sender_phone: str, message: str):
 
     if _is_closing(message):
         # Kalau lagi connect owner, abaikan - biarin timer handle
+        # JANGAN reset timer - pesan user tidak boleh reset timer owner session
         if session.get("owner_connected"):
             print(f"[session] {sender_phone} bilang closing tapi owner_connected, skip")
-            reset_timer(sender_phone)
             return
         await close_session(sender_phone, send_goodbye=True, msg=MSG_CLOSING)
         return
@@ -198,6 +210,10 @@ async def lifespan(app: FastAPI):
 
     tg_app = build_telegram_app()
     tg_app.bot_data["set_knowledge"] = _set_knowledge
+    tg_app.bot_data["set_bot_enabled"] = set_bot_enabled
+    tg_app.bot_data["is_bot_enabled"] = is_bot_enabled
+    tg_app.bot_data["get_sessions"] = get_sessions
+    tg_app.bot_data["cancel_timer"] = cancel_timer
     await tg_app.initialize()
     await tg_app.start()
     await tg_app.updater.start_polling()
@@ -248,6 +264,10 @@ app = FastAPI(lifespan=lifespan)
 
 @app.post("/webhook")
 async def webhook(req: Request):
+    # Gap 5: Check if bot is enabled
+    if not _bot_enabled:
+        return {"status": "bot_disabled"}
+    
     data = await req.json()
 
     if data.get("event") != "message":
@@ -264,8 +284,23 @@ async def webhook(req: Request):
     if is_from_me:
         user_phone = clean_phone(chat_id)
         sessions = get_sessions()
-        if sessions.get(user_phone, {}).get("waiting_owner"):
+        
+        # Gap 4 (Skenario 15.2): Ignore kalau user di luar jam kerja
+        if user_phone in _notified_outside_hours:
+            print(f"[owner_msg] {user_phone} di luar jam kerja, skip owner message")
+            return {"status": "owner_msg_outside_hours"}
+        
+        # Skenario 15.1: Owner proactive message
+        # - User baru: create owner session langsung
+        # - User waiting_owner: switch ke owner_connected
+        # - User session normal: force takeover ke owner session
+        if user_phone not in sessions:
+            start_owner_session(user_phone)
+            print(f"[webhook] owner proactive: created owner session for new user {user_phone}")
+        else:
             owner_connected(user_phone)
+            print(f"[webhook] owner msg: connected/takeover for {user_phone}")
+        
         return {"status": "owner_msg"}
 
     sender_raw   = payload.get("from", "")

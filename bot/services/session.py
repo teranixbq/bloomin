@@ -37,6 +37,14 @@ async def _inactivity_timer(phone: str):
             print(f"[session] outside hours session expired for {phone}")
             return
         
+        # Owner connected session - LANGSUNG close tanpa tanya "masih di sini?"
+        if session.get("owner_connected"):
+            await send_message(phone, MSG_CLOSING)
+            _sessions.pop(phone, None)
+            print(f"[session] owner session inactivity, closed for {phone}")
+            return
+        
+        # Normal session - ada flow "Masih di sini?" → tunggu 2 menit → close
         session["waiting_confirm"] = True
         session["timer"] = None
         await send_message(phone, MSG_STILL_THERE)
@@ -44,12 +52,7 @@ async def _inactivity_timer(phone: str):
         await asyncio.sleep(SESSION_CLOSE_WAIT)
         session = _sessions.get(phone)
         if session and session.get("waiting_confirm"):
-            # Kalau owner pernah connect, kirim terima kasih
-            # Kalau belum connect, kirim owner timeout (masih periode waiting)
-            if session.get("owner_connected"):
-                await send_message(phone, MSG_CLOSING)
-            else:
-                await send_message(phone, MSG_OWNER_TIMEOUT)
+            await send_message(phone, MSG_TIMEOUT_CLOSE)
             _sessions.pop(phone, None)
             print(f"[session] auto-closed (no response) for {phone}")
     except asyncio.CancelledError:
