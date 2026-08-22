@@ -1,7 +1,7 @@
 # Semua pesan, keywords, dan timeout values bot WhatsApp
 
 # Timeout session (detik)
-SESSION_INACTIVITY    = 180   # tanya "masih di sini?"
+SESSION_INACTIVITY    = 300   # tanya "masih di sini?" (5 menit)
 SESSION_CLOSE_WAIT    = 120   # tutup sesi setelah ping
 SESSION_OWNER_TIMEOUT = 300   # tutup sesi owner (5 menit)
 
