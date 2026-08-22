@@ -19,11 +19,13 @@ MSG_WELCOME_DEFAULT = (
 
 # Flow greetings baru dengan pilihan
 MSG_GREETINGS_CHOICE = (
-    "Halo kak! 👋\n\n"
-    "Selamat datang di Bloomin'!\n"
+    "Halo kak! Selamat datang di *Bloomin' Tasikmalaya* 🌸\n\n"
+    "Kami toko bunga yang siap membantu kebutuhanmu!\n\n"
+    "*Lokasi:* Jln. Situ Gede, Linggajaya (dekat Pasar Cikurubuk)\n"
+    "*Jam Buka:* Setiap hari 08.00 - 17.00 WIB\n\n"
     "Mau ngobrol sama siapa nih?\n\n"
-    "🤖 Ketik *1* - Tanya ke Bot AI (produk, harga, dll)\n"
-    "👤 Ketik *2* - Langsung ke Admin"
+    "Ketik *1* - Tanya ke Bot AI (katalog dan harga)\n"
+    "Ketik *2* - Langsung ke Admin"
 )
 
 MSG_BOT_SELECTED = (
